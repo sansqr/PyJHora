@@ -8,14 +8,22 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Any
 import traceback
 
 from jhora import utils, const
 from jhora.panchanga import drik
 from jhora.horoscope import main as horoscope_main
-
+os.environ['SWISSEPH_DATA'] = 'E:/HB/src/jhora/data/ephe/'  # Set Swiss Ephemeris data path
+import swisseph as swe
+swe.close()
+swe.set_ephe_path('E:/HB/src/jhora/data/ephe/')
+# Ensure the Swiss Ephemeris data path is correctly set regardless of working directory
+#swe.set_ephe_path(const._ephe_path)
+print(const._ephe_path)
+ephe_files = [f for f in os.listdir('E:/HB/src/jhora/data/ephe/') if f.endswith('.se1')]
+print(f"found {len(ephe_files)} ephemeris files:{ephe_files} in {const._ephe_path}")
 app = FastAPI(
     title="PyJHora Vedic Astrology API",
     description="REST API for Vedic Astrology calculations using PyJHora",
@@ -76,10 +84,19 @@ class DivisionalChartRequest(BirthData):
     chart_method: int = Field(1, example=1)
 
 class HoroscopeRequest(BirthData):
-    chart_index: int = Field(0, example=0)
+    chart_index: int = Field(0, ge=0, le=23, example=0)
     chart_method: int = Field(1, example=1)
-    divisional_chart_factor: Optional[int] = None
+    divisional_chart_factor: Optional[int] = Field(None, example=1)
     bhava_madhya_method: int = Field(1, example=1)
+
+    @field_validator('divisional_chart_factor')
+    @classmethod
+    def coerce_zero_to_none(cls, v):
+        if v is not None and v <= 0:
+            return None
+        if v is not None and v > 300:
+            raise ValueError('divisional_chart_factor must be between 1 and 300')
+        return v
 
 # ─────────────────── Helpers ──────────────────────────────────────────────────
 
@@ -308,7 +325,7 @@ def get_planet_positions(data: DateTimeData):
         planet_names = ["Sun","Moon","Mars","Mercury","Jupiter","Venus",
                         "Saturn","Rahu","Ketu","Uranus","Neptune","Pluto","Ascendant"]
         for item in planets:
-            pid = item[0]
+            pid = int(item[0])
             rasi, lon = item[1][0], item[1][1]
             result.append({
                 "planet_id": pid,
@@ -359,6 +376,8 @@ def get_rasi_chart(data: BirthData):
                         "Saturn","Rahu","Ketu","Uranus","Neptune","Pluto","Ascendant"]
         result = []
         for item in pp:
+            if not isinstance(item[0], int):
+                continue
             pid, (rasi, lon) = item[0], item[1]
             result.append({
                 "planet_id": pid,
@@ -391,7 +410,7 @@ def get_divisional_chart(data: DivisionalChartRequest):
                         "Saturn","Rahu","Ketu","Uranus","Neptune","Pluto","Ascendant"]
         result = []
         for item in pp:
-            pid, (rasi, lon) = item[0], item[1]
+            pid, (rasi, lon) = int(item[0]), item[1]
             result.append({
                 "planet_id": pid,
                 "planet_name": planet_names[pid] if pid < len(planet_names) else str(pid),
@@ -426,8 +445,8 @@ def get_full_horoscope(data: HoroscopeRequest):
             latitude=data.latitude,
             longitude=data.longitude,
             timezone_offset=data.timezone_offset,
-            date_in=(data.year, data.month, data.day),
-            birth_time=(data.hour, data.minute, int(data.second)),
+            date_in=drik.Date(data.year, data.month, data.day),
+            birth_time=f"{data.hour:02d}:{data.minute:02d}:{int(data.second):02d}",
             language=data.language,
             bhava_madhya_method=data.bhava_madhya_method
         )
@@ -449,8 +468,8 @@ def get_calendar_info(data: BirthData):
             latitude=data.latitude,
             longitude=data.longitude,
             timezone_offset=data.timezone_offset,
-            date_in=(data.year, data.month, data.day),
-            birth_time=(data.hour, data.minute, int(data.second)),
+            date_in=drik.Date(data.year, data.month, data.day),
+            birth_time=f"{data.hour:02d}:{data.minute:02d}:{int(data.second):02d}",
             language=data.language
         )
         return h.get_calendar_information()
@@ -565,12 +584,11 @@ def get_dosha(data: BirthData):
 def get_planetary_strength(data: BirthData):
     """Get Shadbala (six-fold) planetary strength calculations."""
     _set_ayanamsa(data)
-    from jhora.horoscope.chart import strength, charts
+    from jhora.horoscope.chart import strength
     place = _place(data)
     jd = _jd(data)
     def calc():
-        pp = charts.rasi_chart(jd, place)
-        result = strength.shadbala(jd, place, pp)
+        result = strength.shad_bala(jd, place)
         return {"shadbala": result}
     return _safe(calc)
 
@@ -632,8 +650,22 @@ def get_marriage_compatibility(data: MatchData):
         girl_place = _place(data.girl)
         boy_jd   = _jd(data.boy)
         girl_jd  = _jd(data.girl)
-        result = compatibility.match_compatibility(boy_jd, boy_place, girl_jd, girl_place,
-                                                   language=data.boy.language)
+        boy_nak  = drik.nakshatra(boy_jd, boy_place)
+        girl_nak = drik.nakshatra(girl_jd, girl_place)
+        boy_nak_no, boy_pad_no   = boy_nak[0], boy_nak[1]
+        girl_nak_no, girl_pad_no = girl_nak[0], girl_nak[1]
+        a = compatibility.Ashtakoota(boy_nak_no, boy_pad_no, girl_nak_no, girl_pad_no)
+        score = a.compatibility_score()
+        labels = [
+            "varna", "vasiya", "gana", "dina", "yoni",
+            "raasi_adhipathi", "raasi", "naadi", "total_score",
+            "mahendra", "vedha", "rajju", "sthree_dheerga"
+        ]
+        result = dict(zip(labels, score))
+        result["boy_nakshatra"] = boy_nak_no
+        result["boy_paadham"]   = boy_pad_no
+        result["girl_nakshatra"] = girl_nak_no
+        result["girl_paadham"]   = girl_pad_no
         return result
     return _safe(calc)
 
@@ -658,13 +690,13 @@ def get_current_planet_transits(data: BirthData):
         planet_names = ["Sun","Moon","Mars","Mercury","Jupiter","Venus",
                         "Saturn","Rahu","Ketu","Uranus","Neptune","Pluto","Ascendant"]
         natal   = [{
-            "planet_id": it[0],
-            "planet_name": planet_names[it[0]] if it[0] < len(planet_names) else str(it[0]),
+            "planet_id": int(it[0]),
+            "planet_name": planet_names[int(it[0])] if int(it[0]) < len(planet_names) else str(it[0]),
             "rasi": it[1][0], "longitude": round(it[1][1], 4)
         } for it in natal_pp]
         transit = [{
-            "planet_id": it[0],
-            "planet_name": planet_names[it[0]] if it[0] < len(planet_names) else str(it[0]),
+            "planet_id": int(it[0]),
+            "planet_name": planet_names[int(it[0])] if int(it[0]) < len(planet_names) else str(it[0]),
             "rasi": it[1][0], "longitude": round(it[1][1], 4)
         } for it in transit_pp]
         return {"natal": natal, "transit": transit,

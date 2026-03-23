@@ -179,6 +179,7 @@ export class BirthDataFormComponent implements OnInit {
     const data: BirthData = {
       year: v.year, month: v.month, day: v.day,
       hour: v.hour, minute: v.minute, second: v.second ?? 0,
+      place_name: v.place ?? '',
       latitude: v.latitude, longitude: v.longitude,
       timezone_offset: v.timezone_offset,
       ayanamsa_mode: v.ayanamsa_mode,

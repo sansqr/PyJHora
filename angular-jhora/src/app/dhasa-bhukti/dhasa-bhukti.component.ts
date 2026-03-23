@@ -88,10 +88,10 @@ const ANNUAL_DHASAS = ['mudda','patyayini'];
         <mat-card>
           <mat-card-title>{{ dhasaForm.value.type | titlecase }} Dhasa Periods</mat-card-title>
           <mat-card-content>
-            <p *ngIf="!parsedPeriods.length" class="raw-data">
+            <div *ngIf="!parsedPeriods.length" class="raw-data">
               <strong>Raw API response:</strong><br>
               <pre>{{ dhasaData | json }}</pre>
-            </p>
+            </div>
 
             <mat-accordion *ngIf="parsedPeriods.length">
               <mat-expansion-panel *ngFor="let dasha of parsedPeriods; let i = index"

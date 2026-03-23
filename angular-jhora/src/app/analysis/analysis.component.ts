@@ -225,7 +225,7 @@ import { BirthData, DoshaResult, AshtakavargaResult, PLANET_NAMES, RASI_NAMES } 
   `,
   styles: [`
     .form-card    { margin-bottom: 20px; }
-    .yoga-list    { paddig-left: 16px; }
+    .yoga-list    { padding-left: 16px; }
     .yoga-list li { margin-bottom: 4px; font-size: .9rem; }
     .raw-data     { font-size: .78rem; background: #f5f5f5; padding: 12px;
                     border-radius: 4px; overflow: auto; max-height: 320px; white-space: pre-wrap; }

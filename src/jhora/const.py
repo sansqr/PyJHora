@@ -187,8 +187,10 @@ _other_upagraha_list = ['kaala','mrityu','artha_prabhakara','yama','gulika','maa
 _special_lagna_list = ['bhava_lagna','hora_lagna','ghati_lagna','vighati_lagna','sree_lagna','varnada_lagna',
                        'pranapada_lagna','indu_lagna','bhrigu_bindhu']
 
-_ephe_path = os.path.abspath(_EPHIMERIDE_DATA_PATH)
-swe.set_ephe_path(_ephe_path)
+#_ephe_path = os.path.abspath(_EPHIMERIDE_DATA_PATH)
+_ephe_path = 'E:/HB/src/jhora/data/ephe/'
+#swe.set_ephe_path(_ephe_path)
+swe.set_ephe_path('E:/HB/src/jhora/data/ephe/')
 sidereal_year = 365.256364   # From JHora
 lunar_year = 354.36707
 savana_year = 360

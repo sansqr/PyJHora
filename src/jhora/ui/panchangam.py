@@ -879,7 +879,8 @@ if __name__ == "__main__":
         sys.__excepthook__(cls, exception, traceback)
     sys.excepthook = except_hook
     App = QApplication(sys.argv)
-    chart = PanchangaWidget(show_vedic_digital_clock=True,show_vedic_analog_clock=True,show_local_clock=True)
+    chart = PanchangaWidget(show_vedic_digital_clock=True,show_vedic_analog_clock=True,show_local_clock=True,
+                            use_internet_for_location_check=False)
     chart.language('Tamil')
     """
     chart.date_of_birth('1996,12,7')#('-5114,1,9')

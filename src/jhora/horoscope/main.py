@@ -315,6 +315,8 @@ class Horoscope():
                                             years=self.years,months=self.months,sixty_hours=self.sixty_hours,
                                             calculation_type='drik',pravesha_type=self.pravesha_type,
                                             base_rasi=base_rasi,count_from_end_of_sign=count_from_end_of_sign)
+        if planet_positions is None:
+            raise ValueError(f"Divisional chart factor {dhasavarga_factor} is not supported (must be 1-300)")
         ascendant_navamsa = planet_positions[0][1]
         asc_house = ascendant_navamsa[0]
         #if dhasavarga_factor==9:

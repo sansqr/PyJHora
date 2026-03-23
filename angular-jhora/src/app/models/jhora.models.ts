@@ -7,6 +7,7 @@ export interface BirthData {
   hour: number;
   minute: number;
   second?: number;
+  place_name?: string;
   latitude: number;
   longitude: number;
   timezone_offset: number;
@@ -26,7 +27,7 @@ export interface LocationResult {
 // ─── Panchanga models ─────────────────────────────────────────────────────────
 
 export interface SunriseSunset {
-  decimal: number;
+  decimal?: number;
   time: string;
   jd: number;
 }

@@ -736,8 +736,7 @@ def _convert_to_tamil_date_and_time(panchanga_date,time_of_day_in_hours,place=No
     #print('panchanga data after',panchanga_date)
     if place  is not None: # if solar time > sunset time move to next day
         jd = gregorian_to_jd(panchanga_date)
-        sunset_jd = drig_panchanga.sunset(jd, place)[0] - (place.timezone/24.)
-        sunset_time = from_dms_str_to_degrees(drig_panchanga.sunset(sunset_jd,place)[1])
+        sunset_time = drig_panchanga.sunset(jd, place)[0]  # local sunset time in hours
         if sunset_time < time_of_day_in_hours:
             new_panchanga_date = next_panchanga_day(panchanga_date, add_days=1)
             #print(panchanga_date,'sunset_time < solar_hour1',sunset_time,time_of_day_in_hours,'new_panchanga_date',new_panchanga_date)
