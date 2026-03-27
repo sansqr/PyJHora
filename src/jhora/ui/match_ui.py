@@ -21,12 +21,12 @@
 import re
 import sys
 import os
+import img2pdf
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import Qt
 from _datetime import datetime, timedelta,time,date
-import img2pdf
 from jhora.horoscope.match import compatibility
 from jhora import utils
 

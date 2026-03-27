@@ -1,4 +1,8 @@
 export const environment = {
   production: true,
-  apiUrl: '/api'
+  apiUrl: '/api',
+  appName: 'PyJHora',
+  appVersion: '4.7.0',
+  defaultAyanamsa: 'Lahiri',
+  defaultHouseSystem: 'Placidus',
 };

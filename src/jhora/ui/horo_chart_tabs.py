@@ -19,11 +19,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import re, sys, os
-sys.path.append('../')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 """ Get Package Version from _package_info.py """
 #import importlib.metadata
 #_APP_VERSION = importlib.metadata.version('PyJHora')
 #----------
+import img2pdf
+from PIL import Image
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtWidgets import QStyledItemDelegate, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QTableWidget, \
                             QListWidget, QTextEdit, QAbstractItemView, QAbstractScrollArea, QTableWidgetItem, \
@@ -34,8 +36,6 @@ from PyQt6.QtWidgets import QStyledItemDelegate, QWidget, QVBoxLayout, QHBoxLayo
 from PyQt6.QtGui import QFont, QFontMetrics
 from PyQt6.QtCore import Qt
 from _datetime import datetime, timedelta, timezone
-import img2pdf
-from PIL import Image
 import numpy as np
 from jhora import const, utils
 from jhora.panchanga import drik, pancha_paksha, vratha

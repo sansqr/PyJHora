@@ -1,15 +1,1301 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>JHora – Vedic Astrology</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyJHora 4.7 — Jagannath Hora Style</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #0a0c10;
+    --bg-panel: #0f1218;
+    --bg-card: #141820;
+    --bg-hover: #1a2030;
+    --border: #1e2535;
+    --border-bright: #2a3550;
+    --gold: #c8a84b;
+    --gold-bright: #e8c96a;
+    --gold-dim: #7a6428;
+    --saffron: #e07b2a;
+    --crimson: #c0392b;
+    --jade: #27ae60;
+    --sky: #2980b9;
+    --violet: #8e44ad;
+    --text-bright: #e8e0d0;
+    --text-mid: #9a9080;
+    --text-dim: #5a5448;
+    --lagna: #e8c96a;
+    --sun-col: #e8a020;
+    --moon-col: #c8d8e8;
+    --mars-col: #e04040;
+    --mercury-col: #40c878;
+    --jupiter-col: #e8c040;
+    --venus-col: #f0a0c0;
+    --saturn-col: #8080b8;
+    --rahu-col: #808088;
+    --ketu-col: #b87840;
+    --chart-bg: #0c0e14;
+    --chart-border: #2a3040;
+    --highlight: rgba(200,168,75,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'EB Garamond', serif;
+    background: var(--bg-deep);
+    color: var(--text-bright);
+    min-height: 100vh;
+    font-size: 13px;
+    overflow: hidden;
+  }
+
+  /* ── APP SHELL ── */
+  .app-shell { display: flex; flex-direction: column; height: 100vh; }
+
+  /* ── MENU BAR ── */
+  .menu-bar {
+    background: linear-gradient(180deg, #1a1e2a 0%, #121620 100%);
+    border-bottom: 1px solid var(--border-bright);
+    display: flex; align-items: center;
+    padding: 0 8px; height: 26px;
+    flex-shrink: 0;
+  }
+  .menu-bar .app-logo {
+    font-family: 'Cinzel', serif;
+    font-size: 11px; font-weight: 700;
+    color: var(--gold);
+    margin-right: 16px;
+    letter-spacing: 1px;
+  }
+  .menu-item {
+    font-family: 'EB Garamond', serif;
+    font-size: 12px; color: var(--text-mid);
+    padding: 0 8px; height: 26px;
+    display: flex; align-items: center;
+    cursor: pointer; position: relative;
+    border-radius: 2px;
+  }
+  .menu-item:hover { background: var(--bg-hover); color: var(--text-bright); }
+  .menu-item.active { background: var(--bg-hover); color: var(--gold); }
+
+  /* ── TOOLBAR ── */
+  .toolbar {
+    background: linear-gradient(180deg, #13161f 0%, #0f1218 100%);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 3px 8px; height: 34px;
+    gap: 2px; flex-shrink: 0;
+  }
+  .tb-btn {
+    background: linear-gradient(180deg, #1e2535 0%, #161b28 100%);
+    border: 1px solid var(--border-bright);
+    color: var(--text-mid); border-radius: 3px;
+    padding: 2px 10px; font-size: 11px;
+    font-family: 'EB Garamond', serif;
+    cursor: pointer; height: 24px;
+    display: flex; align-items: center; gap: 4px;
+    transition: all 0.15s;
+  }
+  .tb-btn:hover { color: var(--gold); border-color: var(--gold-dim); background: var(--bg-hover); }
+  .tb-btn.active { color: var(--gold); border-color: var(--gold); }
+  .tb-sep { width: 1px; height: 20px; background: var(--border-bright); margin: 0 4px; }
+
+  /* ── MAIN LAYOUT ── */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 240px;
+    flex: 1; overflow: hidden;
+    gap: 0;
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+
+  .panel-header {
+    background: linear-gradient(180deg, #1a1e2a 0%, #13161f 100%);
+    border-bottom: 1px solid var(--border-bright);
+    padding: 5px 10px;
+    font-family: 'Cinzel', serif;
+    font-size: 10px; font-weight: 600;
+    color: var(--gold); letter-spacing: 1.5px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .panel-body { flex: 1; overflow-y: auto; padding: 8px; }
+  .panel-body::-webkit-scrollbar { width: 4px; }
+  .panel-body::-webkit-scrollbar-track { background: var(--bg-deep); }
+  .panel-body::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+  /* ── FORM FIELDS ── */
+  .form-group { margin-bottom: 8px; }
+  .form-label {
+    display: block; font-size: 10px;
+    color: var(--text-dim); margin-bottom: 3px;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    font-family: 'Cinzel', serif;
+  }
+  .form-input {
+    width: 100%; background: var(--bg-card);
+    border: 1px solid var(--border-bright);
+    color: var(--text-bright); border-radius: 3px;
+    padding: 4px 7px; font-size: 12px;
+    font-family: 'EB Garamond', serif;
+    outline: none; transition: border 0.2s;
+  }
+  .form-input:focus { border-color: var(--gold-dim); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+
+  .calc-btn {
+    width: 100%; margin-top: 8px;
+    background: linear-gradient(180deg, #3a2a0a 0%, #251c06 100%);
+    border: 1px solid var(--gold-dim);
+    color: var(--gold-bright);
+    font-family: 'Cinzel', serif;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 2px; padding: 6px;
+    border-radius: 3px; cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .calc-btn:hover {
+    background: linear-gradient(180deg, #4a3410 0%, #352506 100%);
+    border-color: var(--gold);
+    box-shadow: 0 0 12px rgba(200,168,75,0.2);
+  }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-family: 'Cinzel', serif;
+    font-size: 9px; font-weight: 600;
+    color: var(--gold-dim); letter-spacing: 2px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px; margin: 10px 0 6px;
+  }
+
+  /* ── PANCHANG TABLE ── */
+  .panch-table { width: 100%; }
+  .panch-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid rgba(30,37,53,0.5); }
+  .panch-key { color: var(--text-dim); font-size: 11px; font-family: 'Cinzel', serif; font-size: 10px; }
+  .panch-val { color: var(--text-bright); font-size: 11px; font-weight: 500; }
+
+  /* ── GRAHA TABLE ── */
+  .graha-table { width: 100%; border-collapse: collapse; }
+  .graha-table th {
+    font-family: 'Cinzel', serif; font-size: 9px;
+    color: var(--gold-dim); font-weight: 600;
+    letter-spacing: 1px; padding: 3px 4px;
+    border-bottom: 1px solid var(--border-bright);
+    text-align: left;
+  }
+  .graha-table td { padding: 2px 4px; font-size: 11px; border-bottom: 1px solid rgba(30,37,53,0.4); }
+  .graha-table tr:hover td { background: var(--highlight); }
+  .g-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
+
+  /* ── CENTER PANEL ── */
+  .center-panel {
+    display: flex; flex-direction: column;
+    background: var(--bg-deep); overflow: hidden;
+  }
+
+  /* ── CHART TABS ── */
+  .chart-tabs {
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-bright);
+    display: flex; flex-wrap: nowrap;
+    overflow-x: auto; flex-shrink: 0;
+    padding: 0 4px;
+  }
+  .chart-tabs::-webkit-scrollbar { height: 3px; }
+  .chart-tabs::-webkit-scrollbar-thumb { background: var(--border-bright); }
+  .chart-tab {
+    font-family: 'Cinzel', serif;
+    font-size: 10px; color: var(--text-dim);
+    padding: 6px 10px; cursor: pointer;
+    white-space: nowrap; border-bottom: 2px solid transparent;
+    transition: all 0.2s; letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+  .chart-tab:hover { color: var(--text-mid); }
+  .chart-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  /* ── CHART AREA ── */
+  .chart-area {
+    flex: 1; display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px; padding: 12px;
+    overflow-y: auto;
+  }
+
+  .chart-wrapper {
+    background: var(--bg-card);
+    border: 1px solid var(--border-bright);
+    border-radius: 4px; overflow: hidden;
+  }
+  .chart-title {
+    background: linear-gradient(180deg, #1a1e2a 0%, #13161f 100%);
+    padding: 5px 10px;
+    font-family: 'Cinzel', serif;
+    font-size: 10px; font-weight: 700;
+    color: var(--gold); letter-spacing: 2px;
+    border-bottom: 1px solid var(--border-bright);
+    display: flex; justify-content: space-between;
+  }
+  .chart-subtitle { color: var(--text-dim); font-size: 9px; font-weight: 400; }
+
+  /* ── SOUTH INDIAN CHART ── */
+  .si-chart {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 1px; background: var(--chart-border);
+    aspect-ratio: 1; padding: 1px;
+  }
+
+  .si-cell {
+    background: var(--chart-bg);
+    position: relative; padding: 4px;
+    display: flex; flex-direction: column;
+    min-height: 60px;
+    transition: background 0.2s;
+  }
+  .si-cell:hover { background: var(--bg-hover); }
+  .si-cell.center-block { background: rgba(5,7,12,0.8); }
+  .si-cell.lagna { background: rgba(200,168,75,0.06); }
+  .si-cell.lagna::after {
+    content: '⊕';
+    position: absolute; top: 2px; right: 4px;
+    color: var(--lagna); font-size: 11px; opacity: 0.7;
+  }
+
+  .cell-rashi {
+    font-family: 'Cinzel', serif;
+    font-size: 9px; color: var(--text-dim);
+    font-weight: 600; margin-bottom: 2px;
+  }
+  .cell-planets { display: flex; flex-direction: column; gap: 1px; }
+  .cell-planet {
+    font-size: 10px; font-weight: 500;
+    line-height: 1.3; white-space: nowrap;
+  }
+  .cell-deg { font-size: 8px; color: var(--text-dim); font-family: 'Share Tech Mono', monospace; }
+
+  /* ── DASHA TABLE ── */
+  .dasha-container { padding: 12px; }
+  .dasha-wrapper {
+    background: var(--bg-card);
+    border: 1px solid var(--border-bright);
+    border-radius: 4px; overflow: hidden;
+  }
+  .dasha-header {
+    background: linear-gradient(180deg, #1a1e2a 0%, #13161f 100%);
+    padding: 6px 12px;
+    font-family: 'Cinzel', serif;
+    font-size: 10px; font-weight: 700;
+    color: var(--gold); letter-spacing: 2px;
+    border-bottom: 1px solid var(--border-bright);
+  }
+
+  .dasha-table { width: 100%; border-collapse: collapse; }
+  .dasha-table th {
+    font-family: 'Cinzel', serif; font-size: 9px;
+    color: var(--gold-dim); padding: 5px 8px;
+    border-bottom: 1px solid var(--border-bright);
+    text-align: left; font-weight: 600;
+    letter-spacing: 1px;
+  }
+  .dasha-table td {
+    padding: 4px 8px; font-size: 11px;
+    border-bottom: 1px solid rgba(30,37,53,0.5);
+  }
+  .dasha-table tr:hover td { background: var(--highlight); }
+  .dasha-table tr.current-dasha td {
+    background: rgba(200,168,75,0.08);
+    color: var(--gold-bright);
+  }
+  .dasha-table tr.current-dasha td:first-child {
+    border-left: 2px solid var(--gold);
+  }
+  .dasha-bal { color: var(--saffron); font-size: 10px; }
+
+  /* ── ANTARDASHA ── */
+  .antar-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .antar-table th {
+    font-family: 'Cinzel', serif; font-size: 9px;
+    color: var(--violet); padding: 4px 8px;
+    border-bottom: 1px solid var(--border-bright);
+    text-align: left; font-weight: 600;
+  }
+  .antar-table td {
+    padding: 3px 8px; font-size: 10px;
+    border-bottom: 1px solid rgba(30,37,53,0.3);
+  }
+  .antar-table tr.active-antar td { background: rgba(142,68,173,0.1); color: #c39bd3; }
+
+  /* ── RIGHT PANEL ── */
+  .badge {
+    display: inline-block;
+    padding: 1px 6px; border-radius: 2px;
+    font-size: 9px; font-family: 'Cinzel', serif;
+    letter-spacing: 0.5px; font-weight: 600;
+  }
+  .badge-gold { background: rgba(200,168,75,0.15); color: var(--gold); border: 1px solid var(--gold-dim); }
+  .badge-green { background: rgba(39,174,96,0.15); color: var(--jade); border: 1px solid #1e7a44; }
+  .badge-red { background: rgba(192,57,43,0.15); color: #e74c3c; border: 1px solid #922b21; }
+  .badge-blue { background: rgba(41,128,185,0.15); color: #5dade2; border: 1px solid #1a6a99; }
+
+  /* ── YOGA CARD ── */
+  .yoga-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px; padding: 7px 9px;
+    margin-bottom: 6px;
+    transition: border-color 0.2s;
+  }
+  .yoga-card:hover { border-color: var(--gold-dim); }
+  .yoga-name {
+    font-family: 'Cinzel', serif; font-size: 11px;
+    font-weight: 700; color: var(--gold-bright);
+    margin-bottom: 3px;
+  }
+  .yoga-desc { font-size: 11px; color: var(--text-mid); line-height: 1.5; }
+
+  /* ── PLANET ANALYSIS ── */
+  .planet-row {
+    display: flex; align-items: center;
+    padding: 5px 0; border-bottom: 1px solid rgba(30,37,53,0.5);
+    gap: 8px;
+  }
+  .planet-symbol { font-size: 14px; width: 20px; text-align: center; }
+  .planet-info { flex: 1; }
+  .planet-name { font-size: 11px; font-weight: 600; }
+  .planet-data { font-size: 10px; color: var(--text-dim); font-family: 'Share Tech Mono', monospace; }
+  .strength-bar-wrap { width: 50px; }
+  .strength-bar {
+    height: 4px; border-radius: 2px;
+    background: var(--border);
+    overflow: hidden;
+  }
+  .strength-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+
+  /* ── INTERPRETATION BOX ── */
+  .interp-box {
+    background: rgba(200,168,75,0.04);
+    border: 1px solid rgba(200,168,75,0.15);
+    border-radius: 3px; padding: 8px;
+    font-size: 11px; line-height: 1.7;
+    color: var(--text-mid);
+    font-style: italic;
+  }
+  .interp-highlight { color: var(--gold-bright); font-style: normal; font-weight: 600; }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    background: linear-gradient(180deg, #0f1218 0%, #0a0c10 100%);
+    border-top: 1px solid var(--border-bright);
+    display: flex; align-items: center;
+    padding: 0 10px; height: 22px;
+    gap: 12px; flex-shrink: 0;
+  }
+  .status-item { font-size: 10px; color: var(--text-dim); display: flex; align-items: center; gap: 4px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--jade); animation: pulse-dot 2s infinite; }
+  @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .status-sep { color: var(--border-bright); }
+
+  /* ── BOTTOM TABS ── */
+  .bottom-tabs {
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-bright);
+    border-bottom: 1px solid var(--border);
+    display: flex; flex-shrink: 0;
+  }
+  .bottom-tab {
+    font-family: 'Cinzel', serif;
+    font-size: 10px; color: var(--text-dim);
+    padding: 5px 12px; cursor: pointer;
+    border-top: 2px solid transparent;
+    transition: all 0.2s; letter-spacing: 0.5px;
+  }
+  .bottom-tab:hover { color: var(--text-mid); }
+  .bottom-tab.active { color: var(--gold); border-top-color: var(--gold); }
+
+  /* ── ORNAMENTAL DIVIDER ── */
+  .orn-div {
+    text-align: center; color: var(--gold-dim);
+    font-size: 12px; margin: 8px 0;
+    letter-spacing: 4px;
+  }
+
+  /* ── AYANAMSA BADGE ── */
+  .ayan-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(142,68,173,0.1);
+    border: 1px solid rgba(142,68,173,0.3);
+    border-radius: 2px; padding: 2px 7px;
+    font-size: 10px; color: #c39bd3;
+    font-family: 'Cinzel', serif;
+  }
+
+  /* ── NAKSHATRA DISPLAY ── */
+  .naksh-display {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px; padding: 8px;
+    margin-bottom: 8px;
+  }
+  .naksh-name { font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold); font-weight: 700; }
+  .naksh-sub { font-size: 10px; color: var(--text-dim); }
+  .naksh-pada { color: var(--saffron); font-size: 12px; font-weight: 600; }
+
+  /* ── HIGHLIGHT CURRENT ── */
+  .current-period {
+    font-size: 10px; color: var(--jade);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ── SELECT STYLES ── */
+  select.form-input {
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a5448'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    padding-right: 20px;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .panel-body > * { animation: fadeInUp 0.3s ease both; }
+
+  /* ── TOOLTIP ── */
+  [title] { cursor: help; }
+
+  /* ── ASHTAKAVARGA MINI ── */
+  .ashtaka-row { display: flex; gap: 2px; margin: 4px 0; }
+  .ashtaka-cell {
+    flex: 1; text-align: center;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 2px; padding: 3px 2px;
+    font-size: 10px; font-family: 'Share Tech Mono', monospace;
+  }
+  .ashtaka-cell.high { color: var(--jade); border-color: #1e7a44; }
+  .ashtaka-cell.low { color: var(--crimson); border-color: #6e1a13; }
+
+  /* ── SCROLLABLE SUB-PANEL ── */
+  .sub-scroll { overflow-x: auto; }
+  .sub-scroll::-webkit-scrollbar { height: 3px; }
+  .sub-scroll::-webkit-scrollbar-thumb { background: var(--border-bright); }
+
+  /* Responsive tweak */
+  @media (max-width: 1200px) {
+    .main-layout { grid-template-columns: 230px 1fr 210px; }
+  }
+</style>
 </head>
-<body class="mat-typography">
-  <app-root></app-root>
+<body>
+
+<div class="app-shell" id="app">
+
+  <!-- ══ MENU BAR ══ -->
+  <div class="menu-bar">
+    <div class="app-logo">☽ PyJHora</div>
+    <div class="menu-item active" onclick="activateMenu(this)">File</div>
+    <div class="menu-item" onclick="activateMenu(this)">Edit</div>
+    <div class="menu-item" onclick="activateMenu(this)">Charts</div>
+    <div class="menu-item" onclick="activateMenu(this)">Dashas</div>
+    <div class="menu-item" onclick="activateMenu(this)">Transits</div>
+    <div class="menu-item" onclick="activateMenu(this)">Muhurtha</div>
+    <div class="menu-item" onclick="activateMenu(this)">Tools</div>
+    <div class="menu-item" onclick="activateMenu(this)">Options</div>
+    <div class="menu-item" onclick="activateMenu(this)">Help</div>
+    <div style="flex:1"></div>
+    <div class="ayan-badge">Lahiri · 24°07′</div>
+  </div>
+
+  <!-- ══ TOOLBAR ══ -->
+  <div class="toolbar">
+    <button class="tb-btn active">⊕ New Chart</button>
+    <button class="tb-btn">📂 Open</button>
+    <button class="tb-btn">💾 Save</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" onclick="setActive(this,'chart')">D-1 Rashi</button>
+    <button class="tb-btn" onclick="setActive(this,'chart')">D-9 Navamsa</button>
+    <button class="tb-btn" onclick="setActive(this,'chart')">D-10 Dasamsa</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn">Vimshottari</button>
+    <button class="tb-btn">Yogini</button>
+    <button class="tb-btn">Chara</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn">Transit</button>
+    <button class="tb-btn">Synastry</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn">Print</button>
+  </div>
+
+  <!-- ══ MAIN LAYOUT ══ -->
+  <div class="main-layout">
+
+    <!-- ════ LEFT PANEL ════ -->
+    <div class="panel">
+      <div class="panel-header">☽ Birth Data</div>
+      <div class="panel-body">
+
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input class="form-input" type="text" value="Rāma Dāsa" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input class="form-input" type="text" value="15/08/1947" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Time</label>
+            <input class="form-input" type="text" value="00:01:00" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Place</label>
+          <input class="form-input" type="text" value="New Delhi, India" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Latitude</label>
+            <input class="form-input" type="text" value="28°N36'" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Longitude</label>
+            <input class="form-input" type="text" value="77°E12'" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Timezone</label>
+            <input class="form-input" type="text" value="+5:30" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ayanamsa</label>
+            <select class="form-input">
+              <option selected>Lahiri</option>
+              <option>Raman</option>
+              <option>KP</option>
+              <option>Yukteshwar</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Gender</label>
+            <select class="form-input">
+              <option>Male</option>
+              <option>Female</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Calendar</label>
+            <select class="form-input">
+              <option>Gregorian</option>
+              <option>Julian</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="calc-btn" onclick="calculateChart()">⊕ Calculate Horoscope</button>
+
+        <div class="orn-div">· ✦ ·</div>
+
+        <!-- PANCHANG -->
+        <div class="section-title">⊛ Panchang</div>
+        <div class="panch-table">
+          <div class="panch-row"><span class="panch-key">Vara</span><span class="panch-val">Shukravāra (Friday)</span></div>
+          <div class="panch-row"><span class="panch-key">Tithi</span><span class="panch-val">Saptamī (7th)</span></div>
+          <div class="panch-row"><span class="panch-key">Nakshatra</span><span class="panch-val">Punarvasu <span style="color:var(--saffron)">Pāda 3</span></span></div>
+          <div class="panch-row"><span class="panch-key">Yoga</span><span class="panch-val">Shobhana</span></div>
+          <div class="panch-row"><span class="panch-key">Karana</span><span class="panch-val">Bava</span></div>
+          <div class="panch-row"><span class="panch-key">Māsa</span><span class="panch-val">Shrāvana (Shukla)</span></div>
+          <div class="panch-row"><span class="panch-key">Samvat</span><span class="panch-val">2004 Vikrama</span></div>
+          <div class="panch-row"><span class="panch-key">Sunrise</span><span class="panch-val">05:41:22</span></div>
+          <div class="panch-row"><span class="panch-key">Sunset</span><span class="panch-val">19:08:45</span></div>
+          <div class="panch-row"><span class="panch-key">Julian Day</span><span class="panch-val">2432085.5</span></div>
+        </div>
+
+        <div class="orn-div">· ✦ ·</div>
+
+        <!-- GRAHA TABLE -->
+        <div class="section-title">☿ Graha Positions</div>
+        <table class="graha-table">
+          <thead>
+            <tr>
+              <th>Graha</th>
+              <th>Rāshi</th>
+              <th>Deg</th>
+              <th>R</th>
+            </tr>
+          </thead>
+          <tbody id="grahaBody"></tbody>
+        </table>
+
+      </div>
+    </div>
+
+    <!-- ════ CENTER PANEL ════ -->
+    <div class="center-panel">
+
+      <!-- Chart Tabs -->
+      <div class="chart-tabs" id="chartTabs"></div>
+
+      <!-- Bottom Tabs -->
+      <div class="bottom-tabs">
+        <div class="bottom-tab active" onclick="switchBottomTab(this,'charts')">Charts</div>
+        <div class="bottom-tab" onclick="switchBottomTab(this,'dasha')">Vimshottari Dasha</div>
+        <div class="bottom-tab" onclick="switchBottomTab(this,'yogini')">Yogini Dasha</div>
+        <div class="bottom-tab" onclick="switchBottomTab(this,'ashtaka')">Ashtakavarga</div>
+        <div class="bottom-tab" onclick="switchBottomTab(this,'shadbala')">Shadbala</div>
+        <div class="bottom-tab" onclick="switchBottomTab(this,'transit')">Transit</div>
+      </div>
+
+      <!-- Charts View -->
+      <div id="view-charts" class="chart-area">
+        <!-- D-1 Chart -->
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            <span>D-1 ∷ Rāshi Chart</span>
+            <span class="chart-subtitle">Lagna: Taurus 3°22′</span>
+          </div>
+          <div id="d1Chart" style="padding:8px;"></div>
+        </div>
+
+        <!-- D-9 Chart -->
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            <span>D-9 ∷ Navāṃśa Chart</span>
+            <span class="chart-subtitle">Vargottama: Jupiter</span>
+          </div>
+          <div id="d9Chart" style="padding:8px;"></div>
+        </div>
+
+        <!-- D-10 Chart -->
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            <span>D-10 ∷ Daśāṃśa Chart</span>
+            <span class="chart-subtitle">Career · Profession</span>
+          </div>
+          <div id="d10Chart" style="padding:8px;"></div>
+        </div>
+
+        <!-- D-3 Chart -->
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            <span>D-3 ∷ Drekkāṇa Chart</span>
+            <span class="chart-subtitle">Siblings · Courage</span>
+          </div>
+          <div id="d3Chart" style="padding:8px;"></div>
+        </div>
+      </div>
+
+      <!-- Dasha View -->
+      <div id="view-dasha" style="display:none; overflow-y:auto; padding:12px;">
+        <div class="dasha-wrapper">
+          <div class="dasha-header">⊛ Vimshottari Mahādaśā — Balance at Birth: Ketu 6Y 2M 14D</div>
+          <table class="dasha-table" id="dashaTable"></table>
+        </div>
+        <br>
+        <div class="dasha-wrapper">
+          <div class="dasha-header" style="color:var(--violet)">◈ Antardaśā · Current: Jupiter–Saturn</div>
+          <table class="antar-table" id="antarTable"></table>
+        </div>
+      </div>
+
+      <!-- Ashtakavarga View -->
+      <div id="view-ashtaka" style="display:none; overflow-y:auto; padding:12px;">
+        <div class="chart-wrapper">
+          <div class="chart-title"><span>Sarvashtakavarga</span><span class="chart-subtitle">Total Bindus per Rāshi</span></div>
+          <div style="padding:12px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+              <span style="font-family:'Cinzel',serif;font-size:10px;color:var(--text-dim);">RĀSHI</span>
+              <span style="font-family:'Cinzel',serif;font-size:10px;color:var(--text-dim);">BINDUS</span>
+            </div>
+            <div id="ashtakaGrid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shadbala View -->
+      <div id="view-shadbala" style="display:none; overflow-y:auto; padding:12px;">
+        <div class="chart-wrapper">
+          <div class="chart-title"><span>Ṣaḍbala — Six-Fold Strength</span></div>
+          <div style="padding:12px;" id="shadbalaContent"></div>
+        </div>
+      </div>
+
+      <!-- Yogini View -->
+      <div id="view-yogini" style="display:none; overflow-y:auto; padding:12px;">
+        <div class="chart-wrapper">
+          <div class="chart-title"><span>Yoginī Daśā</span></div>
+          <div style="padding:12px;" id="yoginiContent"></div>
+        </div>
+      </div>
+
+      <!-- Transit View -->
+      <div id="view-transit" style="display:none; overflow-y:auto; padding:12px;">
+        <div class="chart-wrapper">
+          <div class="chart-title"><span>Transit Chart — 2026 Mar 25</span></div>
+          <div id="transitChart" style="padding:8px;"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ════ RIGHT PANEL ════ -->
+    <div class="panel">
+      <div class="panel-header">⊛ Analysis</div>
+      <div class="panel-body">
+
+        <!-- Nakshatra -->
+        <div class="section-title">◈ Janma Nakshatra</div>
+        <div class="naksh-display">
+          <div class="naksh-name">Punarvasu</div>
+          <div class="naksh-sub">Lord: Jupiter · Deva Gana · Air</div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;">
+            <span class="naksh-pada">Pāda 3</span>
+            <span style="font-size:10px;color:var(--text-dim);">Lagna: Mṛgaśīrā Pāda 1</span>
+          </div>
+        </div>
+
+        <!-- Planet Strength -->
+        <div class="section-title">☿ Planet Dignity</div>
+        <div id="planetStrength"></div>
+
+        <div class="orn-div">· ✦ ·</div>
+
+        <!-- Yogas -->
+        <div class="section-title">◉ Active Yogas</div>
+        <div id="yogaList"></div>
+
+        <div class="orn-div">· ✦ ·</div>
+
+        <!-- Lagna Analysis -->
+        <div class="section-title">⊕ Lagna Interpretation</div>
+        <div class="interp-box" id="interpBox">
+          <span class="interp-highlight">Taurus Lagna</span> with Venus in 3rd house. The native possesses remarkable <span class="interp-highlight">aesthetic sensibility</span> and material acumen. Moon in Gemini 2nd house bestows eloquence and <span class="interp-highlight">financial intelligence</span>. Jupiter's aspect on Lagna from 9th house confers divine grace and philosophical temperament.
+        </div>
+
+        <div class="orn-div">· ✦ ·</div>
+
+        <!-- Current Dasha -->
+        <div class="section-title">⊛ Current Period</div>
+        <div class="naksh-display">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-family:'Cinzel',serif;font-size:12px;color:var(--gold);">Jupiter Mahādaśā</span>
+            <span class="badge badge-gold">Active</span>
+          </div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:3px;">2019 Nov 14 — 2035 Nov 14</div>
+          <div style="border-top:1px solid var(--border);margin:6px 0;"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-family:'Cinzel',serif;font-size:11px;color:var(--violet);">Saturn Antardaśā</span>
+            <span class="badge badge-blue">Running</span>
+          </div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:3px;">2025 Sep 03 — 2028 May 09</div>
+          <div class="current-period" style="margin-top:4px;">Pratyantara: Mercury · till 2026 May 18</div>
+        </div>
+
+        <div class="orn-div">· ✦ ·</div>
+
+        <!-- Special Lagnas -->
+        <div class="section-title">◈ Special Lagnas</div>
+        <div class="panch-table">
+          <div class="panch-row"><span class="panch-key">Ārūḍha</span><span class="panch-val">Aquarius</span></div>
+          <div class="panch-row"><span class="panch-key">Upa-pada</span><span class="panch-val">Capricorn</span></div>
+          <div class="panch-row"><span class="panch-key">Dāra-pada</span><span class="panch-val">Pisces</span></div>
+          <div class="panch-row"><span class="panch-key">Mantra-pada</span><span class="panch-val">Scorpio</span></div>
+          <div class="panch-row"><span class="panch-key">Hora Lagna</span><span class="panch-val">Gemini 18°</span></div>
+          <div class="panch-row"><span class="panch-key">Ghāṭikā L.</span><span class="panch-val">Virgo 24°</span></div>
+          <div class="panch-row"><span class="panch-key">Śrī Lagna</span><span class="panch-val">Libra 8°</span></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ STATUS BAR ══ -->
+  <div class="status-bar">
+    <div class="status-item"><div class="status-dot"></div> Ready</div>
+    <div class="status-item status-sep">|</div>
+    <div class="status-item">Ayanamsa: Lahiri 24°07′15″</div>
+    <div class="status-item status-sep">|</div>
+    <div class="status-item">House System: Equal (Sign-based)</div>
+    <div class="status-item status-sep">|</div>
+    <div class="status-item">PyJHora v4.7</div>
+    <div style="flex:1"></div>
+    <div class="status-item">Sweph: 2.10</div>
+    <div class="status-item status-sep">|</div>
+    <div class="status-item">JD 2432085.500</div>
+  </div>
+
+</div>
+
+<script>
+// ══ DATA ══════════════════════════════════════════════════
+
+const RASHIS = ['Ari','Tau','Gem','Can','Leo','Vir','Lib','Sco','Sag','Cap','Aqu','Pis'];
+const RASHI_FULL = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+
+const PLANETS = [
+  { id:'su', name:'Sun',     sym:'☉', col:'var(--sun-col)',     rashi:4,  deg:'03°22′', house:4,  retro:false, dignity:'Exalted',  strength:88 },
+  { id:'mo', name:'Moon',    sym:'☽', col:'var(--moon-col)',    rashi:1,  deg:'14°08′', house:2,  retro:false, dignity:'Own Sign', strength:72 },
+  { id:'ma', name:'Mars',    sym:'♂', col:'var(--mars-col)',    rashi:3,  deg:'01°15′', house:3,  retro:false, dignity:'Neutral',  strength:55 },
+  { id:'me', name:'Mercury', sym:'☿', col:'var(--mercury-col)', rashi:3,  deg:'22°44′', house:3,  retro:false, dignity:'Friendly', strength:63 },
+  { id:'ju', name:'Jupiter', sym:'♃', col:'var(--jupiter-col)', rashi:8,  deg:'17°33′', house:9,  retro:false, dignity:'Exalted',  strength:95 },
+  { id:'ve', name:'Venus',   sym:'♀', col:'var(--venus-col)',   rashi:2,  deg:'05°19′', house:2,  retro:false, dignity:'Own Sign', strength:91 },
+  { id:'sa', name:'Saturn',  sym:'♄', col:'var(--saturn-col)',  rashi:3,  deg:'09°28′', house:3,  retro:true,  dignity:'Neutral',  strength:48 },
+  { id:'ra', name:'Rahu',    sym:'☊', col:'var(--rahu-col)',    rashi:11, deg:'22°15′', house:11, retro:true,  dignity:'Neutral',  strength:60 },
+  { id:'ke', name:'Ketu',    sym:'☋', col:'var(--ketu-col)',    rashi:5,  deg:'22°15′', house:5,  retro:true,  dignity:'Neutral',  strength:60 },
+];
+
+const D1_HOUSES = {
+  0:  ['Ma','Me','Sa®'],
+  1:  ['Mo','Ve'],
+  2:  [],
+  3:  ['Su'],
+  4:  ['Ju'],
+  5:  ['Ke'],
+  6:  [],
+  7:  [],
+  8:  [],
+  9:  [],
+  10: ['Ra'],
+  11: [],
+};
+const D1_LAGNA = 0; // House index 0 = Taurus
+
+const D9_HOUSES = {
+  0:[], 1:['Ju','Su'], 2:['Mo'], 3:['Ve'],
+  4:['Sa®'], 5:[], 6:['Ma','Ke'], 7:['Me'],
+  8:[], 9:[], 10:['Ra'], 11:[],
+};
+const D9_LAGNA = 0;
+
+const D10_HOUSES = {
+  0:['Su','Ve'], 1:[], 2:['Ju'], 3:['Ma','Me'],
+  4:[], 5:[], 6:['Sa®'], 7:['Mo'],
+  8:['Ke'], 9:[], 10:['Ra'], 11:[],
+};
+const D10_LAGNA = 2;
+
+const D3_HOUSES = {
+  0:['Mo','Ju'], 1:[], 2:['Su'], 3:['Ve','Me'],
+  4:[], 5:['Ke'], 6:[], 7:['Sa®'],
+  8:[], 9:['Ra'], 10:[], 11:['Ma'],
+};
+const D3_LAGNA = 1;
+
+const TRANSIT_HOUSES = {
+  0:['Sa®'], 1:[], 2:['Ma'], 3:['Me','Su','Ra'],
+  4:[], 5:['Ve'], 6:[], 7:['Ju'],
+  8:[], 9:['Ke'], 10:['Mo'], 11:[],
+};
+
+const DASHAS = [
+  { graha:'Ketu',    start:'1947 Aug 15', end:'1954 Aug 15', years:7,  current:false },
+  { graha:'Venus',   start:'1954 Aug 15', end:'1974 Aug 15', years:20, current:false },
+  { graha:'Sun',     start:'1974 Aug 15', end:'1980 Aug 15', years:6,  current:false },
+  { graha:'Moon',    start:'1980 Aug 15', end:'1990 Aug 15', years:10, current:false },
+  { graha:'Mars',    start:'1990 Aug 15', end:'1997 Aug 15', years:7,  current:false },
+  { graha:'Rahu',    start:'1997 Aug 15', end:'2015 Aug 15', years:18, current:false },
+  { graha:'Jupiter', start:'2015 Aug 15', end:'2031 Aug 15', years:16, current:true  },
+  { graha:'Saturn',  start:'2031 Aug 15', end:'2050 Aug 15', years:19, current:false },
+  { graha:'Mercury', start:'2050 Aug 15', end:'2067 Aug 15', years:17, current:false },
+];
+
+const ANTARDASHA = [
+  { maha:'Jupiter', antar:'Jupiter', start:'2015 Nov 14', end:'2018 Mar 06', current:false },
+  { maha:'Jupiter', antar:'Saturn',  start:'2018 Mar 06', end:'2020 Oct 06', current:false },
+  { maha:'Jupiter', antar:'Mercury', start:'2020 Oct 06', end:'2023 Jan 03', current:false },
+  { maha:'Jupiter', antar:'Ketu',    start:'2023 Jan 03', end:'2024 Feb 09', current:false },
+  { maha:'Jupiter', antar:'Venus',   start:'2024 Feb 09', end:'2026 Oct 10', current:false },
+  { maha:'Jupiter', antar:'Sun',     start:'2026 Oct 10', end:'2027 Aug 04', current:true  },
+  { maha:'Jupiter', antar:'Moon',    start:'2027 Aug 04', end:'2029 Dec 04', current:false },
+  { maha:'Jupiter', antar:'Mars',    start:'2029 Dec 04', end:'2031 Jan 09', current:false },
+  { maha:'Jupiter', antar:'Rahu',    start:'2031 Jan 09', end:'2031 Nov 14', current:false },
+];
+
+const YOGAS = [
+  { name:'Gajakesarī Yoga', desc:'Jupiter and Moon in mutual kendras. Greatness, fame, and leadership throughout life.', badge:'gold' },
+  { name:'Rucaka Yoga',     desc:'Mars exalted or own sign in a kendra. Exceptional courage, military prowess.', badge:'red' },
+  { name:'Hamsa Yoga',      desc:'Jupiter in Cancer (exaltation) in 9th kendra. Divine wisdom, religious prominence.', badge:'gold' },
+  { name:'Budhaditya Yoga', desc:'Sun and Mercury in the same house. Sharp intellect, skilled communication.', badge:'green' },
+  { name:'Adhi Yoga',       desc:'Venus and Mercury in 6th, 7th, 8th from Moon. Prosperity and ministerial status.', badge:'blue' },
+];
+
+const ASHTAKA_BINDUS = [28,31,25,33,29,22,30,27,35,24,31,28];
+
+const SHADBALA = [
+  { graha:'Sun',     total:438, req:390, ratio:1.12 },
+  { graha:'Moon',    total:356, req:360, ratio:0.99 },
+  { graha:'Mars',    total:302, req:300, ratio:1.01 },
+  { graha:'Mercury', total:411, req:420, ratio:0.98 },
+  { graha:'Jupiter', total:487, req:390, ratio:1.25 },
+  { graha:'Venus',   total:469, req:330, ratio:1.42 },
+  { graha:'Saturn',  total:265, req:300, ratio:0.88 },
+];
+
+const VIMSHOTTARI_LORDS = ['Ketu','Venus','Sun','Moon','Mars','Rahu','Jupiter','Saturn','Mercury'];
+
+// ══ CHART TABS ════════════════════════════════════════════
+
+const CHART_TABS = [
+  'D-1 Rāshi','D-2 Horā','D-3 Drekkāṇa','D-4 Chaturthamsa',
+  'D-7 Saptāmśa','D-9 Navāmśa','D-10 Daśāmśa','D-12 Dvādaśāmśa',
+  'D-16 Ṣoḍaśāmśa','D-20 Viṃśāmśa','D-24 Siddhamśa',
+  'D-27 Bhamsa','D-30 Tṛiṃśāmśa','D-40 Khavedamsa',
+  'D-45 Akshavedamsa','D-60 Ṣaṣṭyāmśa'
+];
+
+function buildChartTabs() {
+  const el = document.getElementById('chartTabs');
+  CHART_TABS.forEach((t, i) => {
+    const div = document.createElement('div');
+    div.className = 'chart-tab' + (i===0 ? ' active' : '');
+    div.textContent = t;
+    div.onclick = () => {
+      document.querySelectorAll('.chart-tab').forEach(x => x.classList.remove('active'));
+      div.classList.add('active');
+    };
+    el.appendChild(div);
+  });
+}
+
+// ══ SOUTH INDIAN CHART BUILDER ════════════════════════════
+
+/*
+ South Indian chart layout (fixed sign houses):
+ Row 0: houses 11,0,1,2
+ Row 1: 10,center,center,3
+ Row 2: 9,center,center,4
+ Row 3: 8,7,6,5
+*/
+const SI_LAYOUT = [
+  [11, 0,  1,  2],
+  [10, -1, -1, 3],
+  [ 9, -1, -1, 4],
+  [ 8,  7,  6, 5],
+];
+
+function buildSIChart(containerId, housePlanets, lagnaHouse, startRashi) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const grid = document.createElement('div');
+  grid.className = 'si-chart';
+
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      const h = SI_LAYOUT[r][c];
+      const cell = document.createElement('div');
+
+      if (h === -1) {
+        cell.className = 'si-cell center-block';
+        // Draw chart name in center
+        if (r === 1 && c === 1) {
+          cell.innerHTML = `<div style="font-family:'Cinzel',serif;font-size:9px;color:var(--gold-dim);text-align:center;padding-top:16px;line-height:1.8;">South<br>Indian<br>Chart</div>`;
+        }
+      } else {
+        const rashiIdx = (startRashi + h) % 12;
+        const isLagna = (h === lagnaHouse);
+        cell.className = 'si-cell' + (isLagna ? ' lagna' : '');
+
+        let html = `<div class="cell-rashi">${RASHIS[rashiIdx]}</div><div class="cell-planets">`;
+        const planets = housePlanets[h] || [];
+        planets.forEach(p => {
+          const pl = PLANETS.find(x => x.name.substring(0,2) === p.substring(0,2)) ||
+                     PLANETS.find(x => x.sym === p);
+          const match = PLANETS.find(x => p.startsWith(x.name.substring(0,2)) || p===x.id);
+          const col = match ? match.col : 'var(--text-mid)';
+          html += `<span class="cell-planet" style="color:${col}">${p}</span>`;
+        });
+        html += '</div>';
+
+        if (isLagna) {
+          html += `<div style="font-size:8px;color:var(--lagna);margin-top:2px;font-family:'Cinzel',serif;">Lag</div>`;
+        }
+        cell.innerHTML = html;
+      }
+      grid.appendChild(cell);
+    }
+  }
+  container.appendChild(grid);
+}
+
+// ══ GRAHA TABLE ════════════════════════════════════════════
+
+function buildGrahaTable() {
+  const body = document.getElementById('grahaBody');
+  PLANETS.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="g-dot" style="background:${p.col}"></span><span style="color:${p.col}">${p.sym} ${p.name}</span></td>
+      <td style="color:var(--text-mid)">${RASHIS[p.rashi]}</td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim)">${p.deg}</td>
+      <td style="color:var(--crimson);font-size:11px">${p.retro ? '℞' : ''}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+// ══ DASHA TABLE ════════════════════════════════════════════
+
+function buildDashaTable() {
+  const table = document.getElementById('dashaTable');
+  const thead = document.createElement('thead');
+  thead.innerHTML = `<tr>
+    <th>Mahādaśā</th><th>Start</th><th>End</th><th>Years</th><th>Status</th>
+  </tr>`;
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  DASHAS.forEach(d => {
+    const tr = document.createElement('tr');
+    if (d.current) tr.className = 'current-dasha';
+    tr.innerHTML = `
+      <td><span style="font-family:'Cinzel',serif;font-weight:600;color:${d.current?'var(--gold-bright)':'var(--text-bright)'}">${d.graha}</span></td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:10px">${d.start}</td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:10px">${d.end}</td>
+      <td style="text-align:center">${d.years}</td>
+      <td>${d.current ? '<span class="badge badge-gold">Active</span>' : '<span style="color:var(--text-dim);font-size:10px">—</span>'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  // Antardasha
+  const atable = document.getElementById('antarTable');
+  const athead = document.createElement('thead');
+  athead.innerHTML = `<tr>
+    <th>Antardaśā</th><th>Start</th><th>End</th><th>Status</th>
+  </tr>`;
+  atable.appendChild(athead);
+
+  const atbody = document.createElement('tbody');
+  ANTARDASHA.forEach(a => {
+    const tr = document.createElement('tr');
+    if (a.current) tr.className = 'active-antar';
+    tr.innerHTML = `
+      <td style="font-family:'Cinzel',serif;font-size:11px">${a.antar}</td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:9px">${a.start}</td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:9px">${a.end}</td>
+      <td>${a.current ? '<span class="badge badge-blue">Running</span>' : ''}</td>
+    `;
+    atbody.appendChild(tr);
+  });
+  atable.appendChild(atbody);
+}
+
+// ══ PLANET STRENGTH ════════════════════════════════════════
+
+function buildPlanetStrength() {
+  const el = document.getElementById('planetStrength');
+  PLANETS.filter(p => !['ra','ke'].includes(p.id)).forEach(p => {
+    const strengthCol = p.strength > 75 ? 'var(--jade)' : p.strength > 50 ? 'var(--gold)' : 'var(--crimson)';
+    const row = document.createElement('div');
+    row.className = 'planet-row';
+    row.innerHTML = `
+      <div class="planet-symbol" style="color:${p.col}">${p.sym}</div>
+      <div class="planet-info">
+        <div class="planet-name" style="color:${p.col}">${p.name}</div>
+        <div class="planet-data">${RASHI_FULL[p.rashi]} ${p.deg} H${p.house}</div>
+      </div>
+      <div style="text-align:right">
+        <span class="badge" style="background:rgba(0,0,0,0.3);color:${strengthCol};border:1px solid ${strengthCol}33;font-size:8px;">${p.dignity}</span>
+        <div class="strength-bar-wrap" style="margin-top:3px;">
+          <div class="strength-bar">
+            <div class="strength-fill" style="width:${p.strength}%;background:${strengthCol}"></div>
+          </div>
+        </div>
+      </div>
+    `;
+    el.appendChild(row);
+  });
+}
+
+// ══ YOGAS ═════════════════════════════════════════════════
+
+function buildYogas() {
+  const el = document.getElementById('yogaList');
+  YOGAS.forEach(y => {
+    const badgeClass = `badge-${y.badge}`;
+    const card = document.createElement('div');
+    card.className = 'yoga-card';
+    card.innerHTML = `
+      <div class="yoga-name">${y.name} <span class="badge ${badgeClass}" style="float:right">✓ Active</span></div>
+      <div class="yoga-desc">${y.desc}</div>
+    `;
+    el.appendChild(card);
+  });
+}
+
+// ══ ASHTAKAVARGA ══════════════════════════════════════════
+
+function buildAshtaka() {
+  const el = document.getElementById('ashtakaGrid');
+  const row = document.createElement('div');
+  row.className = 'ashtaka-row';
+  RASHIS.forEach((r, i) => {
+    const b = ASHTAKA_BINDUS[i];
+    const cell = document.createElement('div');
+    cell.className = 'ashtaka-cell' + (b >= 30 ? ' high' : b <= 24 ? ' low' : '');
+    cell.innerHTML = `<div style="font-size:8px;color:var(--text-dim);font-family:'Cinzel',serif;">${r}</div><div style="font-weight:700">${b}</div>`;
+    row.appendChild(cell);
+  });
+  el.appendChild(row);
+  el.innerHTML += `<div style="margin-top:8px;font-size:11px;color:var(--text-dim);">
+    Total Sarva Bindus: <span style="color:var(--gold-bright);font-weight:600;">371</span> · Average: <span style="color:var(--gold-bright);">30.9</span>
+  </div>`;
+}
+
+// ══ SHADBALA ══════════════════════════════════════════════
+
+function buildShadbala() {
+  const el = document.getElementById('shadbalaContent');
+  let html = `<table style="width:100%;border-collapse:collapse;">
+    <thead><tr>
+      <th style="font-family:'Cinzel',serif;font-size:9px;color:var(--gold-dim);padding:4px 8px;border-bottom:1px solid var(--border-bright);text-align:left;">Graha</th>
+      <th style="font-family:'Cinzel',serif;font-size:9px;color:var(--gold-dim);padding:4px 8px;border-bottom:1px solid var(--border-bright);text-align:right;">Total (Rūpa)</th>
+      <th style="font-family:'Cinzel',serif;font-size:9px;color:var(--gold-dim);padding:4px 8px;border-bottom:1px solid var(--border-bright);text-align:right;">Required</th>
+      <th style="font-family:'Cinzel',serif;font-size:9px;color:var(--gold-dim);padding:4px 8px;border-bottom:1px solid var(--border-bright);text-align:left;">Ratio</th>
+    </tr></thead><tbody>`;
+  SHADBALA.forEach(s => {
+    const col = s.ratio >= 1.1 ? 'var(--jade)' : s.ratio >= 1.0 ? 'var(--gold)' : 'var(--crimson)';
+    const barW = Math.min(100, s.ratio * 80);
+    html += `<tr>
+      <td style="padding:5px 8px;font-family:'Cinzel',serif;font-size:11px;border-bottom:1px solid rgba(30,37,53,0.5)">${s.graha}</td>
+      <td style="padding:5px 8px;text-align:right;font-family:'Share Tech Mono',monospace;font-size:11px;border-bottom:1px solid rgba(30,37,53,0.5)">${s.total}</td>
+      <td style="padding:5px 8px;text-align:right;font-size:11px;color:var(--text-dim);border-bottom:1px solid rgba(30,37,53,0.5)">${s.req}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid rgba(30,37,53,0.5)">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div style="width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
+            <div style="width:${barW}%;height:100%;background:${col};border-radius:2px;"></div>
+          </div>
+          <span style="font-size:10px;color:${col};font-family:'Share Tech Mono',monospace">${s.ratio.toFixed(2)}</span>
+        </div>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ══ YOGINI ════════════════════════════════════════════════
+
+function buildYogini() {
+  const el = document.getElementById('yoginiContent');
+  const yoginis = [
+    { name:'Mangalā',  lord:'Moon',    years:1, start:'2024 Jan', end:'2025 Jan', active:false },
+    { name:'Piṅgalā',  lord:'Sun',     years:2, start:'2025 Jan', end:'2027 Jan', active:true  },
+    { name:'Dhanyā',   lord:'Jupiter', years:3, start:'2027 Jan', end:'2030 Jan', active:false },
+    { name:'Bhrāmarī', lord:'Mars',    years:4, start:'2030 Jan', end:'2034 Jan', active:false },
+    { name:'Bhadrā',   lord:'Mercury', years:5, start:'2034 Jan', end:'2039 Jan', active:false },
+    { name:'Ulkā',     lord:'Saturn',  years:6, start:'2039 Jan', end:'2045 Jan', active:false },
+    { name:'Siddha',   lord:'Venus',   years:7, start:'2045 Jan', end:'2052 Jan', active:false },
+    { name:'Mahā',     lord:'Rahu',    years:8, start:'2052 Jan', end:'2060 Jan', active:false },
+  ];
+  let html = `<table style="width:100%;border-collapse:collapse;">
+    <thead><tr>
+      <th style="font-family:'Cinzel',serif;font-size:9px;color:var(--gold-dim);padding:4px 8px;border-bottom:1px solid var(--border-bright);text-align:left;">Yoginī</th>
+      <th style="font-family:'Cinzel',serif;font-size:9px;color:var(--gold-dim);padding:4px 8px;border-bottom:1px solid var(--border-bright);">Lord</th>
+      <th style="font-family:'Cinzel',serif;font-size:9px;color:var(--gold-dim);padding:4px 8px;border-bottom:1px solid var(--border-bright);">Yrs</th>
+      <th style="font-family:'Cinzel',serif;font-size:9px;color:var(--gold-dim);padding:4px 8px;border-bottom:1px solid var(--border-bright);">Period</th>
+    </tr></thead><tbody>`;
+  yoginis.forEach(y => {
+    html += `<tr style="${y.active?'background:rgba(200,168,75,0.08);':''}">
+      <td style="padding:4px 8px;border-bottom:1px solid rgba(30,37,53,0.4);font-family:'Cinzel',serif;font-size:11px;color:${y.active?'var(--gold-bright)':'var(--text-bright)'}">${y.name}${y.active?'<span class="badge badge-gold" style="margin-left:6px;font-size:8px;">Active</span>':''}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid rgba(30,37,53,0.4);font-size:11px;text-align:center;color:var(--text-mid)">${y.lord}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid rgba(30,37,53,0.4);font-size:11px;text-align:center">${y.years}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid rgba(30,37,53,0.4);font-size:10px;color:var(--text-dim);font-family:'Share Tech Mono',monospace">${y.start}–${y.end}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ══ TAB SWITCHING ═════════════════════════════════════════
+
+function switchBottomTab(el, view) {
+  document.querySelectorAll('.bottom-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+
+  const views = ['charts','dasha','ashtaka','shadbala','yogini','transit'];
+  views.forEach(v => {
+    const el2 = document.getElementById('view-' + v);
+    if (el2) el2.style.display = 'none';
+  });
+
+  const target = document.getElementById('view-' + view);
+  if (target) {
+    target.style.display = (view === 'charts') ? 'grid' : 'block';
+  }
+}
+
+function activateMenu(el) {
+  document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function setActive(el, grp) {
+  // toolbar buttons visual toggle
+  el.classList.toggle('active');
+}
+
+function calculateChart() {
+  const btn = document.querySelector('.calc-btn');
+  btn.textContent = '⟳ Calculating...';
+  btn.style.color = 'var(--saffron)';
+  setTimeout(() => {
+    btn.textContent = '✓ Chart Calculated';
+    btn.style.color = 'var(--jade)';
+    setTimeout(() => {
+      btn.textContent = '⊕ Calculate Horoscope';
+      btn.style.color = 'var(--gold-bright)';
+    }, 2000);
+  }, 800);
+}
+
+// ══ INIT ══════════════════════════════════════════════════
+
+function init() {
+  buildChartTabs();
+  buildGrahaTable();
+  buildDashaTable();
+  buildPlanetStrength();
+  buildYogas();
+  buildAshtaka();
+  buildShadbala();
+  buildYogini();
+
+  // Build South Indian charts
+  buildSIChart('d1Chart',  D1_HOUSES,  D1_LAGNA,  0);
+  buildSIChart('d9Chart',  D9_HOUSES,  D9_LAGNA,  0);
+  buildSIChart('d10Chart', D10_HOUSES, D10_LAGNA, 0);
+  buildSIChart('d3Chart',  D3_HOUSES,  D3_LAGNA,  0);
+  buildSIChart('transitChart', TRANSIT_HOUSES, 0, 0);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
 </body>
 </html>

@@ -21,13 +21,13 @@
 import re
 import sys
 import os
+import img2pdf
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtGui import QFont, QFontMetrics
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QCompleter, \
                             QMessageBox, QComboBox, QPushButton, QApplication, QFileDialog
 from PyQt6.QtCore import Qt
 from _datetime import datetime
-import img2pdf
 from jhora import utils,const
 from jhora.panchanga import drik
 from jhora.horoscope import main

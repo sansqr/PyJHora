@@ -19,11 +19,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import re, sys, os
-sys.path.append('../')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 """ Get Package Version from _package_info.py """
 #import importlib.metadata
 #_APP_VERSION = importlib.metadata.version('PyJHora')
 #----------
+import img2pdf
+from PIL import Image
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtWidgets import QStyledItemDelegate, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, \
                             QTextEdit, QLayout, QLabel, QSizePolicy, QLineEdit, QCompleter, QComboBox, \
@@ -31,27 +33,26 @@ from PyQt6.QtWidgets import QStyledItemDelegate, QWidget, QVBoxLayout, QHBoxLayo
 from PyQt6.QtGui import QFont, QFontMetrics
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QTimeZone
 from _datetime import datetime
-import img2pdf
-from PIL import Image
-from jhora import const, utils
+import jhora
+from jhora import utils, const
 from jhora.panchanga import drik, pancha_paksha, vratha, info
-vratha.load_festival_data(const._FESTIVAL_FILE)
-_available_ayanamsa_modes = [k for k in list(const.available_ayanamsa_modes.keys()) if k not in ['SENTHIL','SIDM_USER']]
+vratha.load_festival_data(jhora.const._FESTIVAL_FILE)
+_available_ayanamsa_modes = [k for k in list(jhora.const.available_ayanamsa_modes.keys()) if k not in ['SENTHIL','SIDM_USER']]
 _KEY_COLOR = 'brown'; _VALUE_COLOR = 'blue'; _HEADER_COLOR='green'
 _KEY_LENGTH=100; _VALUE_LENGTH=100; _HEADER_LENGTH=100
 _HEADER_FORMAT_ = '<b><span style="color:'+_HEADER_COLOR+';">{:<'+str(_HEADER_LENGTH)+'}</span></b><br>'
 _KEY_VALUE_FORMAT_ = '<span style="color:'+_KEY_COLOR+';">{:.'+str(_KEY_LENGTH)+'}'+'  '+'</span><span style="color:'+\
         _VALUE_COLOR+';">{:.'+str(_VALUE_LENGTH)+'}</span><br>'
-_images_path = const._IMAGES_PATH
+_images_path = jhora.const._IMAGES_PATH
 _IMAGES_PER_PDF_PAGE = 2
-_IMAGE_ICON_PATH=const._IMAGE_ICON_PATH
-_INPUT_DATA_FILE = const._INPUT_DATA_FILE
+_IMAGE_ICON_PATH=jhora.const._IMAGE_ICON_PATH
+_INPUT_DATA_FILE = jhora.const._INPUT_DATA_FILE
 _SHOW_SPECIAL_TITHIS = True
 _SHOW_MUHURTHA_OR_SHUBHA_HORA = 0 # 0=Muhurtha 1=Shubha Hora
 _VEDIC_HOURS_PER_DAY = 60 #30 for Mhurthas and 60 for Ghati
-_world_city_csv_file = const._world_city_csv_file
-_planet_symbols=const._planet_symbols
-_zodiac_symbols = const._zodiac_symbols
+_world_city_csv_file = jhora.const._world_city_csv_file
+_planet_symbols=jhora.const._planet_symbols
+_zodiac_symbols = jhora.const._zodiac_symbols
 """ UI Constants """
 _main_window_width = 1000#750 #725
 _main_window_height = 725#630 #580 #
@@ -74,7 +75,7 @@ _tab_names = ['panchangam_str','']
 _tab_count = len(_tab_names)
 _tabcount_before_chart_tab = 1
 
-available_languages = const.available_languages
+available_languages = jhora.const.available_languages
 _scrollbar_border_size = "1px"; _scrollbar_border_color = "#999999"
 # Constants
 SCROLLBAR_BORDER_SIZE = "1px"
@@ -126,7 +127,7 @@ class PanchangaInfoDialog(QWidget):
         super().__init__()
         self.start_jd = jd; self.place = place
         self.info_labels_have_scroll = info_labels_have_scroll
-        self._ayanamsa_mode = const._DEFAULT_AYANAMSA_MODE
+        self._ayanamsa_mode = jhora.const._DEFAULT_AYANAMSA_MODE
         self._info_label1_font_size=info_label1_font_size; self._info_label2_font_size=info_label2_font_size
         self._info_label3_font_size=info_label3_font_size
         self._info_label1_height = info_label_height; self._info_label2_height = info_label_height
@@ -136,9 +137,9 @@ class PanchangaInfoDialog(QWidget):
         if self.start_jd is None:
             year,month,day = current_date_str.split(','); dob = drik.Date(int(year),int(month),int(day))
             tob = current_time_str.split(':')
-            self.start_jd = utils.julian_day_number(dob, (int(tob[0]),int(tob[1]),int(tob[2])))
-        if place is None and const.use_internet_for_location_check:
-            loc = utils.get_place_from_user_ip_address()
+            self.start_jd = jhora.utils.julian_day_number(dob, (int(tob[0]),int(tob[1]),int(tob[2])))
+        if place is None and jhora.const.use_internet_for_location_check:
+            loc = jhora.utils.get_place_from_user_ip_address()
             print('loc from IP address',loc)
             if len(loc)==4:
                 print('setting values from loc')
@@ -146,8 +147,8 @@ class PanchangaInfoDialog(QWidget):
         self.initUI()
         self.update_panchangam_info(self.start_jd,self.place)
     def set_language(self,language):
-        self._language = language; utils.set_language(available_languages[language])
-        self.res = utils.resource_strings
+        self._language = language; jhora.utils.set_language(available_languages[language])
+        self.res = jhora.utils.resource_strings
     def initUI(self):
         h_layout = QHBoxLayout()
         h_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
@@ -232,8 +233,8 @@ class PanchangaInfoDialog(QWidget):
 class PanchangaWidget(QWidget):
     def __init__(self,calculation_type:str='drik',language = 'English',date_of_birth=None,time_of_birth=None,
                  place_of_birth=None,show_vedic_digital_clock=False,show_local_clock=False,
-                 show_vedic_analog_clock=False,use_world_city_database=const.check_database_for_world_cities,
-                 use_internet_for_location_check=const.use_internet_for_location_check):
+                 show_vedic_analog_clock=False,use_world_city_database=jhora.const.check_database_for_world_cities,
+                 use_internet_for_location_check=jhora.const.use_internet_for_location_check):
         """
             @param date_of_birth: string in the format 'yyyy,m,d' e.g. '2024,1,1'  or '2024,01,01'
             @param place_of_birth: tuple in the format ('place_name',latitude_float,longitude_float,timezone_hrs_float)
@@ -245,11 +246,11 @@ class PanchangaWidget(QWidget):
         self.show_vedic_analog_clock = show_vedic_analog_clock and show_vedic_digital_clock
         self.show_local_clock = show_local_clock
         self._horo = None
-        self._language = language; utils.set_language(available_languages[language])
+        self._language = language; jhora.utils.set_language(available_languages[language])
         self.use_world_city_database = use_world_city_database
-        utils.use_database_for_world_cities(self.use_world_city_database)
+        jhora.utils.use_database_for_world_cities(self.use_world_city_database)
         self.use_internet_for_location_check = use_internet_for_location_check
-        self.resources = utils.resource_strings
+        self.resources = jhora.utils.resource_strings
         self._calculation_type = calculation_type
         ' read world cities'
         #self._df = utils._world_city_db_df
@@ -266,7 +267,7 @@ class PanchangaWidget(QWidget):
             self.time_of_birth(current_time_str)
         #"""
         if place_of_birth is None and self.use_internet_for_location_check:
-            loc = utils.get_place_from_user_ip_address()
+            loc = jhora.utils.get_place_from_user_ip_address()
             print('loc from IP address',loc)
             if len(loc)==4:
                 print('setting values from loc')
@@ -275,7 +276,7 @@ class PanchangaWidget(QWidget):
         year,month,day = self._dob_text.text().split(",")
         dob = (int(year),int(month),int(day))
         tob = tuple([int(x) for x in self._tob_text.text().split(':')])
-        self._birth_julian_day = utils.julian_day_number(dob, tob)
+        self._birth_julian_day = jhora.utils.julian_day_number(dob, tob)
         """ Commented in V4.0.4 to force explicit calling """
         #self.compute_horoscope(calculation_type=self._calculation_type)    
     def _hide_2nd_row_widgets(self,show=True):
@@ -371,7 +372,7 @@ class PanchangaWidget(QWidget):
         self._row1_h_layout.addWidget(self._place_label)
         self._place_name = ''
         self._place_text = QLineEdit(self._place_name)
-        completer = QCompleter(utils.world_cities_dict.keys())
+        completer = QCompleter(jhora.utils.world_cities_dict.keys())
         completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
         self._place_text.setCompleter(completer)
         self._place_text.textChanged.connect(self._resize_place_text_size)
@@ -407,7 +408,7 @@ class PanchangaWidget(QWidget):
         self._row2_h_layout.addWidget(self._lang_combo)
         self._ayanamsa_combo = QComboBox()
         self._ayanamsa_combo.addItems(_available_ayanamsa_modes)
-        self._ayanamsa_mode = const._DEFAULT_AYANAMSA_MODE
+        self._ayanamsa_mode = jhora.const._DEFAULT_AYANAMSA_MODE
         self._ayanamsa_combo.setCurrentText(self._ayanamsa_mode)
         self._ayanamsa_combo.activated.connect(self._ayanamsa_selection_changed)
         self._ayanamsa_combo.setToolTip('Choose Ayanamsa mode from the list')
@@ -448,18 +449,18 @@ class PanchangaWidget(QWidget):
     def _ayanamsa_selection_changed(self):
         self._ayanamsa_mode = self._ayanamsa_combo.currentText().upper()
         drik.set_ayanamsa_mode(self._ayanamsa_mode,jd=self.julian_day) if self._ayanamsa_mode.upper()=='SUNDAR_SS' else drik.set_ayanamsa_mode(self._ayanamsa_mode)
-        const._DEFAULT_AYANAMSA_MODE = self._ayanamsa_mode
+        jhora.const._DEFAULT_AYANAMSA_MODE = self._ayanamsa_mode
     def ayanamsa_mode(self, ayanamsa_mode, ayanamsa=None):
         """
             Set Ayanamsa mode
             @param ayanamsa_mode - Default - Lahiri
             See 'drik.available_ayanamsa_modes' for the list of available models
         """
-        if ayanamsa_mode.upper() in const.available_ayanamsa_modes.keys():
+        if ayanamsa_mode.upper() in jhora.const.available_ayanamsa_modes.keys():
             self._ayanamsa_mode = ayanamsa_mode
             self._ayanamsa_value = ayanamsa
             self._ayanamsa_combo.setCurrentText(ayanamsa_mode)
-            const._DEFAULT_AYANAMSA_MODE = self._ayanamsa_mode
+            jhora.const._DEFAULT_AYANAMSA_MODE = self._ayanamsa_mode
     def place(self,place_name,latitude,longitude,timezone_hrs):
         """
             Set the place of birth
@@ -549,7 +550,7 @@ class PanchangaWidget(QWidget):
                 _language_index = self._lang_combo.currentIndex()
                 self._lang_combo.clear()
                 #self._lang_combo.addItems([msgs[l.lower()+'_str'] for l in const.available_languages.keys()])
-                self._lang_combo.addItems(const.available_languages.keys())
+                self._lang_combo.addItems(jhora.const.available_languages.keys())
                 self._lang_combo.setCurrentIndex(_language_index)
                 self._ayanamsa_combo.setToolTip(msgs['ayanamsa_tooltip_str'])
                 self._ayanamsa_combo.setMaximumWidth(300)
@@ -564,12 +565,12 @@ class PanchangaWidget(QWidget):
                 self._save_city_button.setStyleSheet('font-size:'+str(_main_ui_label_button_font_size)+'pt')
                 self._save_city_button.setToolTip(msgs['savecity_tooltip_str'])
                 self._footer_label.setText(msgs['window_footer_title'])
-                self.setWindowTitle(msgs['window_title']+'-'+const._APP_VERSION)
+                self.setWindowTitle(msgs['window_title']+'-'+jhora.const._APP_VERSION)
                 self.update()
                 print('UI Language change to',self._language,'completed')
         except:
             print('Some error happened during changing to',self._language,' language and displaying UI in that language.\n'+\
-            'Please Check resources file:',const._DEFAULT_LANGUAGE_MSG_STR+available_languages[self._language]+'.txt')
+            'Please Check resources file:',jhora.const._DEFAULT_LANGUAGE_MSG_STR+available_languages[self._language]+'.txt')
             print(sys.exc_info())
     def compute_horoscope(self, calculation_type='drik'):
         """
@@ -583,13 +584,13 @@ class PanchangaWidget(QWidget):
         self._latitude = float(self._lat_text.text())
         self._longitude = float(self._long_text.text())
         self._time_zone = float(self._tz_text.text())
-        self._language = list(const.available_languages.keys())[self._lang_combo.currentIndex()]
-        utils.set_language(available_languages[self._language])
-        self.resources = utils.resource_strings
+        self._language = list(jhora.const.available_languages.keys())[self._lang_combo.currentIndex()]
+        jhora.utils.set_language(available_languages[self._language])
+        self.resources = jhora.utils.resource_strings
         year,month,day = self._dob_text.text().split(",")
         dob = (int(year),int(month),int(day))
         tob = tuple([int(x) for x in self._tob_text.text().split(':')])
-        self.julian_day = utils.julian_day_number(dob, tob)
+        self.julian_day = jhora.utils.julian_day_number(dob, tob)
         self.place = drik.Place(self._place_name,float(self._latitude),float(self._longitude),float(self._time_zone))
         self._ayanamsa_mode =  self._ayanamsa_combo.currentText()
         drik.set_ayanamsa_mode(self._ayanamsa_mode,jd=self.julian_day) if self._ayanamsa_mode.upper()=='SUNDAR_SS' else drik.set_ayanamsa_mode(self._ayanamsa_mode) 
@@ -643,7 +644,7 @@ class PanchangaWidget(QWidget):
         self._place_text.setFixedSize(pw,ph)
         self._place_text.adjustSize()       
     def _get_location(self,place_name):
-        result = utils.get_location(place_name)
+        result = jhora.utils.get_location(place_name)
         print('RESULT',result)
         if result:
             self._place_name,self._latitude,self._longitude,self._time_zone = result
@@ -669,7 +670,7 @@ class PanchangaWidget(QWidget):
             if len(tmp_arr) > 1:
                 country = tmp_arr[1:]
             location_data = [country,city,self._latitude,self._longitude,country,self._time_zone]
-            utils.save_location_to_database(location_data)
+            jhora.utils.save_location_to_database(location_data)
         return          
     def _save_info_labels_by_click_scroll(self, image_id, image_files):
         labels = [
