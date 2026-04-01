@@ -37,7 +37,9 @@ from PyQt6 import QtCore, QtGui
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QStatusBar, QToolBar,
     QMenuBar, QMenu, QMessageBox, QFileDialog, QLabel, QSizePolicy, QDialog,
-    QDialogButtonBox, QTextEdit, QInputDialog
+    QDialogButtonBox, QTextEdit, QInputDialog, QTableWidget, QTableWidgetItem,
+    QAbstractItemView, QHBoxLayout, QLineEdit, QPushButton, QHeaderView,
+    QSpinBox, QDoubleSpinBox, QComboBox, QGridLayout
 )
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QFont, QColor, QPixmap
 from PyQt6.QtCore import Qt, QTimer, QDateTime, pyqtSignal
@@ -45,6 +47,7 @@ from PyQt6.QtCore import Qt, QTimer, QDateTime, pyqtSignal
 from jhora import const, utils
 from jhora._package_info import version as _APP_VERSION
 from jhora.ui.horo_chart_tabs import ChartTabbed, available_chart_types, available_languages
+from jhora.data.chart_db import ChartDatabase
 
 # ──────────────────────────────────────────────────────────────────
 #  JHora 8 colour palette  (classic Windows-gray + accented labels)
@@ -350,6 +353,398 @@ class _AboutDialog(QDialog):
 
 
 # ──────────────────────────────────────────────────────────────────
+#  Birth Data Entry dialog
+# ──────────────────────────────────────────────────────────────────
+class BirthDataDialog(QDialog):
+    """
+    Popup dialog to enter or edit birth data before computing a horoscope.
+
+    Fields
+    ------
+    Name, Gender, Date of Birth (yyyy-mm-dd), Time of Birth (hh:mm:ss),
+    Place, Latitude (D° M' S" N/S), Longitude (D° M' S" E/W),
+    Time Zone offset (UTC±decimal).
+
+    ``get_data()`` returns a dict with the internal formats ready to be
+    passed to ``_load_record_into_ui()``:
+        dob  → "YYYY,MM,DD"   (comma-separated, as ChartTabbed expects)
+        tob  → "HH:MM:SS"
+        latitude / longitude → float (signed decimal degrees)
+        tz_offset → float
+    """
+
+    def __init__(self, parent=None, initial_data: dict = None):
+        super().__init__(parent)
+        self.setWindowTitle("Birth Data")
+        self.setModal(True)
+        self.setMinimumWidth(520)
+        self._build_ui()
+        if initial_data:
+            self._populate(initial_data)
+
+    # ── UI construction ───────────────────────────────────────────
+    def _build_ui(self):
+        outer = QVBoxLayout(self)
+        outer.setSpacing(8)
+        grid = QGridLayout()
+        grid.setColumnMinimumWidth(0, 130)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(7)
+        row = 0
+
+        # Name
+        grid.addWidget(QLabel("Name:"), row, 0)
+        self._name_edit = QLineEdit()
+        self._name_edit.setPlaceholderText("Full name")
+        grid.addWidget(self._name_edit, row, 1, 1, 4)
+        row += 1
+
+        # Gender
+        grid.addWidget(QLabel("Gender:"), row, 0)
+        self._gender_combo = QComboBox()
+        self._gender_combo.addItems(['Female', 'Male', 'Transgender', 'No preference'])
+        grid.addWidget(self._gender_combo, row, 1, 1, 2)
+        row += 1
+
+        # Date of birth
+        grid.addWidget(QLabel("Date of Birth:"), row, 0)
+        self._dob_edit = QLineEdit()
+        self._dob_edit.setPlaceholderText("yyyy-mm-dd")
+        self._dob_edit.setMaximumWidth(110)
+        grid.addWidget(self._dob_edit, row, 1)
+        grid.addWidget(QLabel("(yyyy-mm-dd)"), row, 2)
+        row += 1
+
+        # Time of birth
+        grid.addWidget(QLabel("Time of Birth:"), row, 0)
+        self._tob_edit = QLineEdit()
+        self._tob_edit.setPlaceholderText("hh:mm:ss")
+        self._tob_edit.setMaximumWidth(90)
+        grid.addWidget(self._tob_edit, row, 1)
+        grid.addWidget(QLabel("(hh:mm:ss, 24-h)"), row, 2)
+        row += 1
+
+        # Place
+        grid.addWidget(QLabel("Place:"), row, 0)
+        self._place_edit = QLineEdit()
+        self._place_edit.setPlaceholderText("City, Country")
+        grid.addWidget(self._place_edit, row, 1, 1, 4)
+        row += 1
+
+        # Latitude  ── D° M' S" N/S
+        grid.addWidget(QLabel("Latitude:"), row, 0)
+        lat_row = QHBoxLayout()
+        lat_row.setSpacing(4)
+        self._lat_deg = QSpinBox()
+        self._lat_deg.setRange(0, 90)
+        self._lat_deg.setSuffix("°")
+        self._lat_deg.setFixedWidth(60)
+        self._lat_min = QSpinBox()
+        self._lat_min.setRange(0, 59)
+        self._lat_min.setSuffix("'")
+        self._lat_min.setFixedWidth(58)
+        self._lat_sec = QDoubleSpinBox()
+        self._lat_sec.setRange(0.0, 59.99)
+        self._lat_sec.setDecimals(2)
+        self._lat_sec.setSuffix('"')
+        self._lat_sec.setFixedWidth(72)
+        self._lat_dir = QComboBox()
+        self._lat_dir.addItems(['N', 'S'])
+        self._lat_dir.setFixedWidth(46)
+        for w in (self._lat_deg, self._lat_min, self._lat_sec, self._lat_dir):
+            lat_row.addWidget(w)
+        lat_row.addStretch()
+        lat_container = QWidget()
+        lat_container.setLayout(lat_row)
+        grid.addWidget(lat_container, row, 1, 1, 4)
+        row += 1
+
+        # Longitude ── D° M' S" E/W
+        grid.addWidget(QLabel("Longitude:"), row, 0)
+        lon_row = QHBoxLayout()
+        lon_row.setSpacing(4)
+        self._lon_deg = QSpinBox()
+        self._lon_deg.setRange(0, 180)
+        self._lon_deg.setSuffix("°")
+        self._lon_deg.setFixedWidth(68)
+        self._lon_min = QSpinBox()
+        self._lon_min.setRange(0, 59)
+        self._lon_min.setSuffix("'")
+        self._lon_min.setFixedWidth(58)
+        self._lon_sec = QDoubleSpinBox()
+        self._lon_sec.setRange(0.0, 59.99)
+        self._lon_sec.setDecimals(2)
+        self._lon_sec.setSuffix('"')
+        self._lon_sec.setFixedWidth(72)
+        self._lon_dir = QComboBox()
+        self._lon_dir.addItems(['E', 'W'])
+        self._lon_dir.setFixedWidth(46)
+        for w in (self._lon_deg, self._lon_min, self._lon_sec, self._lon_dir):
+            lon_row.addWidget(w)
+        lon_row.addStretch()
+        lon_container = QWidget()
+        lon_container.setLayout(lon_row)
+        grid.addWidget(lon_container, row, 1, 1, 4)
+        row += 1
+
+        # Time zone
+        grid.addWidget(QLabel("Time Zone (UTC±):"), row, 0)
+        self._tz_spin = QDoubleSpinBox()
+        self._tz_spin.setRange(-14.0, 14.0)
+        self._tz_spin.setSingleStep(0.5)
+        self._tz_spin.setDecimals(2)
+        self._tz_spin.setPrefix("UTC ")
+        self._tz_spin.setFixedWidth(100)
+        grid.addWidget(self._tz_spin, row, 1)
+        grid.addWidget(QLabel("e.g. +5.5 for IST, -5.0 for EST"), row, 2, 1, 3)
+        row += 1
+
+        outer.addLayout(grid)
+        outer.addSpacing(4)
+
+        # OK / Cancel
+        btns = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(self._on_accept)
+        btns.rejected.connect(self.reject)
+        outer.addWidget(btns)
+
+    # ── Pre-populate from a record dict ──────────────────────────
+    def _populate(self, data: dict):
+        if data.get('name'):
+            self._name_edit.setText(str(data['name']))
+        try:
+            self._gender_combo.setCurrentIndex(int(data.get('gender', 0) or 0))
+        except Exception:
+            pass
+        # DOB: stored internally as YYYY,MM,DD – show as yyyy-mm-dd
+        dob = str(data.get('dob', '') or '').strip()
+        if dob:
+            self._dob_edit.setText(dob.replace(',', '-'))
+        # TOB
+        tob = str(data.get('tob', '') or '').strip()
+        if tob:
+            self._tob_edit.setText(tob)
+        if data.get('place'):
+            self._place_edit.setText(str(data['place']))
+        # Latitude
+        try:
+            lat = float(data.get('latitude', 0) or 0)
+            d, m, s, positive = self._decimal_to_dms(lat)
+            self._lat_deg.setValue(d)
+            self._lat_min.setValue(m)
+            self._lat_sec.setValue(round(s, 2))
+            self._lat_dir.setCurrentText('N' if positive else 'S')
+        except Exception:
+            pass
+        # Longitude
+        try:
+            lon = float(data.get('longitude', 0) or 0)
+            d, m, s, positive = self._decimal_to_dms(lon)
+            self._lon_deg.setValue(d)
+            self._lon_min.setValue(m)
+            self._lon_sec.setValue(round(s, 2))
+            self._lon_dir.setCurrentText('E' if positive else 'W')
+        except Exception:
+            pass
+        # Timezone
+        try:
+            self._tz_spin.setValue(float(data.get('tz_offset', 0) or 0))
+        except Exception:
+            pass
+
+    # ── Validation + accept ───────────────────────────────────────
+    def _on_accept(self):
+        from datetime import datetime as _dt
+        dob = self._dob_edit.text().strip()
+        if dob:
+            try:
+                _dt.strptime(dob, '%Y-%m-%d')
+            except ValueError:
+                QMessageBox.warning(self, "Invalid Date",
+                                    "Date of Birth must be in yyyy-mm-dd format.\n"
+                                    "Example: 1980-07-15")
+                self._dob_edit.setFocus()
+                return
+        tob = self._tob_edit.text().strip()
+        if tob:
+            try:
+                _dt.strptime(tob, '%H:%M:%S')
+            except ValueError:
+                QMessageBox.warning(self, "Invalid Time",
+                                    "Time of Birth must be in hh:mm:ss format (24-hour).\n"
+                                    "Example: 14:30:00")
+                self._tob_edit.setFocus()
+                return
+        self.accept()
+
+    # ── Result extraction ─────────────────────────────────────────
+    def get_data(self) -> dict:
+        """
+        Return entered birth data as a dict with internal formats:
+          dob       → "YYYY,MM,DD"  (comma-separated, as ChartTabbed expects)
+          tob       → "HH:MM:SS"
+          latitude  → float (signed decimal degrees, + North / - South)
+          longitude → float (signed decimal degrees, + East  / - West)
+          tz_offset → float
+        """
+        dob_raw = self._dob_edit.text().strip()
+        dob_internal = dob_raw.replace('-', ',') if dob_raw else ''
+        lat = self._dms_to_decimal(
+            self._lat_deg.value(), self._lat_min.value(),
+            self._lat_sec.value(), self._lat_dir.currentText())
+        lon = self._dms_to_decimal(
+            self._lon_deg.value(), self._lon_min.value(),
+            self._lon_sec.value(), self._lon_dir.currentText())
+        return {
+            'name':      self._name_edit.text().strip(),
+            'gender':    self._gender_combo.currentIndex(),
+            'dob':       dob_internal,
+            'tob':       self._tob_edit.text().strip(),
+            'place':     self._place_edit.text().strip(),
+            'latitude':  lat,
+            'longitude': lon,
+            'tz_offset': self._tz_spin.value(),
+        }
+
+    # ── DMS ↔ decimal helpers ─────────────────────────────────────
+    @staticmethod
+    def _dms_to_decimal(degrees: int, minutes: int, seconds: float,
+                        direction: str) -> float:
+        """Convert degrees/minutes/seconds + compass direction to signed decimal."""
+        value = degrees + minutes / 60.0 + seconds / 3600.0
+        if direction in ('S', 'W'):
+            value = -value
+        return round(value, 6)
+
+    @staticmethod
+    def _decimal_to_dms(decimal: float):
+        """Convert signed decimal degrees to (degrees, minutes, seconds, is_positive)."""
+        positive = decimal >= 0
+        decimal = abs(decimal)
+        degrees = int(decimal)
+        remainder = (decimal - degrees) * 60.0
+        minutes = int(remainder)
+        seconds = (remainder - minutes) * 60.0
+        return degrees, minutes, seconds, positive
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Browse Charts dialog
+# ──────────────────────────────────────────────────────────────────
+class _BrowseChartsDialog(QDialog):
+    """
+    Search and select a chart from the SQLite database.
+
+    Columns shown: Name | Gender | DOB | TOB | Place | Tags | Notes | Saved
+    The user can:
+      • Type a search term to filter by name / place / tags
+      • Double-click (or select + Open) to load a chart
+      • Delete a selected row from the database
+    """
+    _HEADERS = ["Name", "Gender", "Date of Birth", "Time", "Place",
+                "Tags", "Notes", "Saved"]
+    _COL_MAP = ["name", "gender", "dob", "tob", "place",
+                "tags", "notes", "created_at"]
+
+    def __init__(self, db: 'ChartDatabase', parent=None):
+        super().__init__(parent)
+        self._db = db
+        self.selected_record: dict | None = None
+        self.setWindowTitle("Browse Charts")
+        self.resize(900, 480)
+        self._build_ui()
+        self._refresh("")
+
+    def _build_ui(self):
+        vlay = QVBoxLayout(self)
+
+        # Search bar
+        hlay = QHBoxLayout()
+        self._search = QLineEdit(placeholderText="Search by name, place or tag…")
+        self._search.textChanged.connect(self._refresh)
+        btn_clear = QPushButton("Clear")
+        btn_clear.clicked.connect(lambda: self._search.clear())
+        hlay.addWidget(self._search)
+        hlay.addWidget(btn_clear)
+        vlay.addLayout(hlay)
+
+        # Results table
+        self._table = QTableWidget(0, len(self._HEADERS))
+        self._table.setHorizontalHeaderLabels(self._HEADERS)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self._table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self._table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.ResizeToContents)
+        self._table.doubleClicked.connect(self._accept_row)
+        self._table.setAlternatingRowColors(True)
+        vlay.addWidget(self._table)
+
+        # Buttons
+        btn_row = QHBoxLayout()
+        btn_open   = QPushButton("Open")
+        btn_delete = QPushButton("Delete")
+        btn_cancel = QPushButton("Cancel")
+        btn_open.clicked.connect(self._accept_row)
+        btn_delete.clicked.connect(self._delete_row)
+        btn_cancel.clicked.connect(self.reject)
+        btn_row.addWidget(btn_open)
+        btn_row.addWidget(btn_delete)
+        btn_row.addStretch()
+        btn_row.addWidget(btn_cancel)
+        vlay.addLayout(btn_row)
+
+    def _refresh(self, query: str = ""):
+        self._records = self._db.search_charts(query)
+        self._table.setRowCount(0)
+        _gender_labels = {0: "Male", 1: "Female", 2: "Other"}
+        for rec in self._records:
+            row = self._table.rowCount()
+            self._table.insertRow(row)
+            for col, key in enumerate(self._COL_MAP):
+                val = rec.get(key, "")
+                if key == "gender":
+                    val = _gender_labels.get(int(val or 0), str(val))
+                elif key == "created_at" and val:
+                    val = str(val)[:16]        # trim seconds
+                item = QTableWidgetItem(str(val))
+                item.setData(Qt.ItemDataRole.UserRole, rec.get("id"))
+                self._table.setItem(row, col, item)
+
+    def _selected_record(self) -> dict | None:
+        rows = self._table.selectedItems()
+        if not rows:
+            return None
+        row_idx = self._table.currentRow()
+        if 0 <= row_idx < len(self._records):
+            return self._records[row_idx]
+        return None
+
+    def _accept_row(self):
+        rec = self._selected_record()
+        if rec is None:
+            QMessageBox.information(self, "Browse Charts", "Please select a chart first.")
+            return
+        self.selected_record = rec
+        self.accept()
+
+    def _delete_row(self):
+        rec = self._selected_record()
+        if rec is None:
+            return
+        reply = QMessageBox.question(
+            self, "Delete Chart",
+            f"Delete \"{rec.get('name','')}\" ({rec.get('dob','')}) from the database?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._db.delete_chart(rec["id"])
+            self._refresh(self._search.text())
+
+
+# ──────────────────────────────────────────────────────────────────
 #  Main window
 # ──────────────────────────────────────────────────────────────────
 class JHoraMainWindow(QMainWindow):
@@ -364,7 +759,7 @@ class JHoraMainWindow(QMainWindow):
                  show_marriage_compatibility: bool = True,
                  calculation_type: str = 'drik'):
         super().__init__()
-        self._app_title = f"PyJHora  v{_APP_VERSION}  –  Vedic Astrology"
+        self._app_title = f"HoneyBee{_APP_VERSION}  –  Vedic Astrology"
         self.setWindowTitle(self._app_title)
         self.setWindowIcon(QtGui.QIcon(const._IMAGE_ICON_PATH))
 
@@ -400,6 +795,8 @@ class JHoraMainWindow(QMainWindow):
         self._refresh_status()
 
         self.showMaximized()
+        self._db = ChartDatabase()          # SQLite chart store
+        self._current_chart_id: int | None = None   # DB id of loaded chart
 
     # ── Public API (pass-through to ChartTabbed) ─────────────────
     def name(self, name: str):               self._chart.name(name)
@@ -420,12 +817,15 @@ class JHoraMainWindow(QMainWindow):
 
         # ── File ──────────────────────────────────────────────────
         file_menu = mb.addMenu("&File")
-        self._act_new     = self._action("&New Chart",       "Ctrl+N", "Start a new horoscope",          self._new_chart)
-        self._act_open    = self._action("&Open…",           "Ctrl+O", "Load chart data from file",      self._open_chart)
-        self._act_save    = self._action("&Save…",           "Ctrl+S", "Save chart data to file",        self._save_chart)
-        self._act_pdf     = self._action("Save as &PDF…",   "Ctrl+P", "Export horoscope as PDF",        self._save_pdf)
-        self._act_exit    = self._action("E&xit",            "Alt+F4", "Quit PyJHora",                   self._exit_app)
-        for act in [self._act_new, self._act_open, self._act_save, None,
+        self._act_new     = self._action("&New Chart",          "Ctrl+N",  "Start a new horoscope",              self._new_chart)
+        self._act_browse  = self._action("&Browse Charts…",     "Ctrl+B",  "Browse/search the chart database",   self._browse_charts)
+        self._act_open    = self._action("&Import JHD file…",   "Ctrl+O",  "Import a JHD/txt chart file",        self._import_jhd)
+        self._act_save    = self._action("&Save to Database",   "Ctrl+S",  "Save current chart to database",     self._save_chart)
+        self._act_export  = self._action("&Export JHD file…",   "Ctrl+E",  "Export current chart as JHD file",   self._export_jhd)
+        self._act_pdf     = self._action("Save as &PDF…",       "Ctrl+P",  "Export horoscope as PDF",            self._save_pdf)
+        self._act_exit    = self._action("E&xit",               "Alt+F4",  "Quit PyJHora",                       self._exit_app)
+        for act in [self._act_new, self._act_browse, None,
+                    self._act_save, self._act_open, self._act_export, None,
                     self._act_pdf, None, self._act_exit]:
             if act is None:
                 file_menu.addSeparator()
@@ -636,10 +1036,12 @@ class JHoraMainWindow(QMainWindow):
             return QIcon.fromTheme(icon_name)
 
         _tb_items = [
-            ("document-new",      "New",     "New Chart",          self._new_chart),
-            ("document-open",     "Open",    "Open chart file",    self._open_chart),
-            ("document-save",     "Save",    "Save chart data",    self._save_chart),
-            ("document-print",    "PDF",     "Export to PDF",      self._save_pdf),
+            ("document-new",      "New",     "New Chart",             self._new_chart),
+            ("system-search",     "Browse",  "Browse chart database", self._browse_charts),
+            ("document-open",     "Import",  "Import JHD/txt file",   self._import_jhd),
+            ("document-save",     "Save",    "Save to database",      self._save_chart),
+            ("document-export",   "Export",  "Export JHD file",       self._export_jhd),
+            ("document-print",    "PDF",     "Export to PDF",         self._save_pdf),
             (None, None, None, None),  # separator
             ("view-refresh",      "Compute", "Compute horoscope",
              lambda: self._chart.compute_horoscope()),
@@ -707,71 +1109,149 @@ class JHoraMainWindow(QMainWindow):
     #  Menu slots
     # ─────────────────────────────────────────────────────────────
     def _new_chart(self):
-        """Reset inputs for a new chart."""
-        try:
-            from _datetime import datetime
-            now = datetime.now()
-            self._chart.date_of_birth(now.strftime('%Y,%m,%d'))
-            self._chart.time_of_birth(now.strftime('%H:%M:%S'))
-            self._chart._name_text.setText("New Chart")
-            self._chart._place_text.clear()
-            self._chart._lat_text.clear()
-            self._chart._long_text.clear()
-            self._chart._tz_text.clear()
-            self._refresh_status()
-            self.statusBar().showMessage("New chart started – enter birth details and click Compute.", 4000)
-        except Exception as e:
-            QMessageBox.warning(self, "New Chart", str(e))
+        """Open the Birth Data dialog to enter details for a new chart."""
+        from datetime import datetime as _dt
+        now = _dt.now()
+        initial = {
+            'name':      '',
+            'gender':    0,
+            'dob':       now.strftime('%Y,%m,%d'),
+            'tob':       now.strftime('%H:%M:%S'),
+            'place':     '',
+            'latitude':  0.0,
+            'longitude': 0.0,
+            'tz_offset': 0.0,
+        }
+        dlg = BirthDataDialog(self, initial_data=initial)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        data = dlg.get_data()
+        self._current_chart_id = None
+        self._load_record_into_ui(data)
+        self._refresh_status()
+        self.statusBar().showMessage(
+            "New chart ready – click Compute (F5) to calculate.", 4000)
 
-    def _open_chart(self):
+    # ── Chart database helpers ────────────────────────────────────
+    def _load_record_into_ui(self, record: dict):
+        """Push a DB record's fields into the ChartTabbed UI."""
+        if record.get('name'):  self._chart.name(record['name'])
+        if record.get('dob'):   self._chart.date_of_birth(record['dob'])
+        if record.get('tob'):   self._chart.time_of_birth(record['tob'])
+        if all(record.get(k) is not None for k in ('place','latitude','longitude','tz_offset')):
+            self._chart.place(record['place'],
+                              float(record['latitude']),
+                              float(record['longitude']),
+                              float(record['tz_offset']))
+        if record.get('gender') is not None:
+            self._chart.gender(int(record['gender']))
+        self._current_chart_id = record.get('id')
+
+    def _collect_chart_data(self) -> dict:
+        """Read current UI fields into a dict ready for ChartDatabase.save_chart()."""
+        data = {
+            'name':      self._chart._name_text.text()   if hasattr(self._chart, '_name_text')   else '',
+            'dob':       self._chart._dob_text.text()    if hasattr(self._chart, '_dob_text')    else '',
+            'tob':       self._chart._tob_text.text()    if hasattr(self._chart, '_tob_text')    else '',
+            'place':     self._chart._place_text.text()  if hasattr(self._chart, '_place_text')  else '',
+            'latitude':  float(self._chart._lat_text.text()  or 0) if hasattr(self._chart, '_lat_text')  else 0.0,
+            'longitude': float(self._chart._long_text.text() or 0) if hasattr(self._chart, '_long_text') else 0.0,
+            'tz_offset': float(self._chart._tz_text.text()   or 0) if hasattr(self._chart, '_tz_text')   else 0.0,
+            'gender':    self._chart._gender_combo.currentIndex() if hasattr(self._chart, '_gender_combo') else 0,
+        }
+        if self._current_chart_id:
+            data['id'] = self._current_chart_id
+        return data
+
+    # ── Browse dialog ─────────────────────────────────────────────
+    def _browse_charts(self):
+        """Open the Browse Charts dialog then the Birth Data editor."""
+        browse_dlg = _BrowseChartsDialog(self._db, self)
+        if not (browse_dlg.exec() and browse_dlg.selected_record):
+            return
+        rec = browse_dlg.selected_record
+        # Pre-populate the birth data dialog with the selected record
+        birth_dlg = BirthDataDialog(self, initial_data=rec)
+        if birth_dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        data = birth_dlg.get_data()
+        # Preserve the database id so Save overwrites the same record
+        if rec.get('id') is not None:
+            data['id'] = rec['id']
+        self._load_record_into_ui(data)
+        self._chart.compute_horoscope()
+        self._refresh_status()
+        self.statusBar().showMessage(
+            f"Loaded: {data.get('name','')}  ({data.get('dob','')})", 4000)
+
+    # ── Save to DB ────────────────────────────────────────────────
+    def _save_chart(self):
+        """Save current chart fields to the SQLite database."""
+        try:
+            data = self._collect_chart_data()
+            if not data.get('name') or not data.get('dob'):
+                QMessageBox.warning(self, "Save Chart",
+                                    "Please enter at least a name and date of birth before saving.")
+                return
+            # Optionally prompt for notes/tags
+            notes, ok1 = QInputDialog.getMultiLineText(
+                self, "Notes", "Add notes for this chart (optional):",
+                self._db.get_chart(self._current_chart_id).get('notes', '')
+                if self._current_chart_id else '')
+            if ok1:
+                data['notes'] = notes
+            tags, ok2 = QInputDialog.getText(
+                self, "Tags", "Tags (comma-separated, optional):",
+                text=self._db.get_chart(self._current_chart_id).get('tags', '')
+                if self._current_chart_id else '')
+            if ok2:
+                data['tags'] = tags
+            chart_id = self._db.save_chart(data)
+            self._current_chart_id = chart_id
+            self.statusBar().showMessage(
+                f"Saved to database  (id={chart_id}  –  {self._db.count()} charts total)", 4000)
+        except Exception as e:
+            QMessageBox.critical(self, "Save Chart", f"Error saving chart:\n{e}")
+
+    # ── Import JHD file ───────────────────────────────────────────
+    def _import_jhd(self):
         fpath, _ = QFileDialog.getOpenFileName(
-            self, "Open Chart Data", "", "Text Files (*.txt);;All Files (*)")
+            self, "Import Chart File", "",
+            "JHD / Text Files (*.jhd *.txt);;All Files (*)")
         if not fpath:
             return
         try:
-            with open(fpath, 'r', encoding='utf-8') as f:
-                lines = [l.strip() for l in f.readlines()]
-            data = {}
-            for line in lines:
-                if '=' in line:
-                    k, v = line.split('=', 1)
-                    data[k.strip().lower()] = v.strip()
-            if 'name'  in data: self._chart.name(data['name'])
-            if 'dob'   in data: self._chart.date_of_birth(data['dob'])
-            if 'tob'   in data: self._chart.time_of_birth(data['tob'])
-            if 'place' in data and 'lat' in data and 'lon' in data and 'tz' in data:
-                self._chart.place(data['place'], float(data['lat']),
-                                  float(data['lon']), float(data['tz']))
-            if 'gender' in data:
-                self._chart.gender(int(data.get('gender', 0)))
+            chart_id = self._db.import_jhd(fpath)
+            rec = self._db.get_chart(chart_id)
+            self._load_record_into_ui(rec)
             self._chart.compute_horoscope()
             self._refresh_status()
-            self.statusBar().showMessage(f"Loaded: {fpath}", 3000)
+            self.statusBar().showMessage(f"Imported: {fpath}  →  db id={chart_id}", 4000)
         except Exception as e:
-            QMessageBox.critical(self, "Open Chart", f"Error opening file:\n{e}")
+            QMessageBox.critical(self, "Import Chart", f"Error importing file:\n{e}")
 
-    def _save_chart(self):
+    # ── Export JHD file ───────────────────────────────────────────
+    def _export_jhd(self):
+        if not self._current_chart_id:
+            # Auto-save first so we have a valid id
+            self._save_chart()
+        if not self._current_chart_id:
+            return
         fpath, _ = QFileDialog.getSaveFileName(
-            self, "Save Chart Data", "", "Text Files (*.txt);;All Files (*)")
+            self, "Export Chart File", "",
+            "JHD Files (*.jhd);;Text Files (*.txt);;All Files (*)")
         if not fpath:
             return
         try:
-            name     = self._chart._name_text.text()    if hasattr(self._chart, '_name_text')   else ''
-            dob      = self._chart._dob_text.text()     if hasattr(self._chart, '_dob_text')    else ''
-            tob      = self._chart._tob_text.text()     if hasattr(self._chart, '_tob_text')    else ''
-            place    = self._chart._place_text.text()   if hasattr(self._chart, '_place_text')  else ''
-            lat      = self._chart._lat_text.text()     if hasattr(self._chart, '_lat_text')    else ''
-            lon      = self._chart._long_text.text()    if hasattr(self._chart, '_long_text')   else ''
-            tz       = self._chart._tz_text.text()      if hasattr(self._chart, '_tz_text')     else ''
-            gender   = str(self._chart._gender_combo.currentIndex()) \
-                       if hasattr(self._chart, '_gender_combo') else '0'
-            content  = (f"name={name}\ndob={dob}\ntob={tob}\n"
-                        f"place={place}\nlat={lat}\nlon={lon}\ntz={tz}\ngender={gender}\n")
-            with open(fpath, 'w', encoding='utf-8') as f:
-                f.write(content)
-            self.statusBar().showMessage(f"Saved: {fpath}", 3000)
+            ok = self._db.export_jhd(self._current_chart_id, fpath)
+            if ok:
+                self.statusBar().showMessage(f"Exported: {fpath}", 3000)
+            else:
+                QMessageBox.warning(self, "Export", "Nothing to export – save the chart first.")
         except Exception as e:
-            QMessageBox.critical(self, "Save Chart", f"Error saving file:\n{e}")
+            QMessageBox.critical(self, "Export Chart", f"Error exporting file:\n{e}")
+
+    # _save_chart, _import_jhd, _export_jhd defined above near _browse_charts
 
     def _save_pdf(self):
         try:

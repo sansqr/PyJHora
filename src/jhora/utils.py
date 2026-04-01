@@ -463,7 +463,7 @@ def to_dms_prec(deg):
   d = int(deg)
   mins = (deg - d) * 60
   m = int(mins)
-  s = round((mins - m) * 60, 2) # changed from 6 digit precision in 2.0.3
+  s = round((mins - m) * 60, 4) # changed from 6 digit precision in 2.0.3; changed from 2 to 4 decimal places
   return [d, m, s]
 
 def to_dms(deg,as_string=True, is_lat_long=None,round_seconds_to_digits=None,round_to_minutes=None,
@@ -495,7 +495,10 @@ def to_dms(deg,as_string=True, is_lat_long=None,round_seconds_to_digits=None,rou
     else:
         m = int(mins)
     ss = (mins-m)*60
-    s = round(ss,round_seconds_to_digits) # V2.3.1 int changed to round
+    if round_seconds_to_digits is None and is_lat_long is not None:
+        s = round(ss, 4)  # 0.0001" precision for positional display
+    else:
+        s = round(ss,round_seconds_to_digits) # V2.3.1 int changed to round
     #"""
     if (is_lat_long is None):
         if d > 23:

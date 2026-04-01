@@ -33,6 +33,7 @@ _IMAGE_ICON_PATH=os.path.join(_IMAGES_PATH+_sep+"lord_ganesha2.jpg")
 _INPUT_DATA_FILE = _DATA_DIR +'program_inputs.txt' #os.path.join(ROOT_DIR,'data'+_sep+'program_inputs.txt')
 _FESTIVAL_FILE = _DATA_DIR +_sep+'hindu_festivals_multilingual_unicode_bom.csv'
 _world_city_csv_file = os.path.join(ROOT_DIR,'data'+_sep+'world_cities_with_tz.csv')
+_CHARTS_DB_FILE = os.path.join(ROOT_DIR,'data'+_sep+'charts.db')
 _open_elevation_api_url = lambda lat,long:f'https://api.open-elevation.com/api/v1/lookup?locations={lat},{long}'
 _EPHIMERIDE_DATA_PATH = os.path.join(ROOT_DIR,'data'+_sep+'ephe'+_sep)
 _LANGUAGE_PATH = os.path.join(ROOT_DIR,'lang'+_sep)
