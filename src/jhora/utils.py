@@ -31,7 +31,7 @@ from timezonefinder import TimezoneFinder
 import csv
 import numpy as np
 import swisseph as swe
-from geopy.geocoders import Nominatim
+from geopy.geocoders import Nominatim, GeoNames
 from jhora import const
 
 import json
@@ -206,20 +206,33 @@ def get_location(place_name=None):
                     #print('saving to database',_city,_country)
                     save_location_to_database([_country,_city,_latitude,_longitude,_tz_str,_time_zone])
         else:
-            print('Could not get',place_name,'from google.Trying to get from OpenStreetMaps')
-            place_found = False
-            result = get_location_using_nominatim(place_name)
+            print('Could not get',place_name,'from google.Trying to get from GeoNames')
+            result = get_location_using_geonames(place_name)
             if result:
                 place_found = True
-                print(place_name,'found in OpenStreetMap')
+                print(place_name,'found in GeoNames')
                 [_place_name,_latitude,_longitude,_time_zone] = result
                 _arr = place_name.split(','); 
                 if len(_arr)>=2:
                     _city = ','.join(_arr[:-1]); _country=_arr[-1];_tz_str=''
-                    #print('city,country',_city,_country)
                     if _city not in world_cities_dict.keys():
                         print('saving to database',_city,_country)
                         save_location_to_database([_country,_city,_latitude,_longitude,_tz_str,_time_zone])
+            else:
+                print('Could not get',place_name,'from GeoNames.Trying to get from OpenStreetMaps')
+                place_found = False
+                result = get_location_using_nominatim(place_name)
+                if result:
+                    place_found = True
+                    print(place_name,'found in OpenStreetMap')
+                    [_place_name,_latitude,_longitude,_time_zone] = result
+                    _arr = place_name.split(','); 
+                    if len(_arr)>=2:
+                        _city = ','.join(_arr[:-1]); _country=_arr[-1];_tz_str=''
+                        #print('city,country',_city,_country)
+                        if _city not in world_cities_dict.keys():
+                            print('saving to database',_city,_country)
+                            save_location_to_database([_country,_city,_latitude,_longitude,_tz_str,_time_zone])
     if place_found:
         return result
     return []
@@ -247,6 +260,29 @@ def scrap_google_map_for_latlongtz_from_city_with_country(city_with_country):
     timezone_offset = get_place_timezone_offset(latitude, longitude)
     print('city',city_with_country,'lat=',latitude,'long=',longitude,'timezone offset',timezone_offset)
     return city_with_country,latitude,longitude,timezone_offset
+def get_location_using_geonames(place_name):
+    """
+        function to get latitude/longitude from a place name using GeoNames web service.
+        Requires a free GeoNames username set in const.geonames_username.
+        Register at https://www.geonames.org/login
+        @param place_name: Place name. Example: 'Chennai, India'
+        @return [city, latitude, longitude, time_zone_offset] or None
+    """
+    if not const.geonames_username:
+        print('GeoNames username not configured. Set const.geonames_username.')
+        return None
+    try:
+        geolocator = GeoNames(username=const.geonames_username)
+        location = geolocator.geocode(place_name)
+        if location:
+            city = location.address.split(',')[0].strip()
+            latitude = round(location.latitude, 4)
+            longitude = round(location.longitude, 4)
+            time_zone_offset = get_place_timezone_offset(latitude, longitude)
+            return [city, latitude, longitude, time_zone_offset]
+    except Exception as e:
+        print(f'GeoNames lookup failed for {place_name}: {e}')
+    return None
 def get_location_using_nominatim(place_with_country_code):
     """
         function to get latitude/longitude from city with country code using Nominatim

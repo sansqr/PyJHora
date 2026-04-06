@@ -1228,6 +1228,7 @@ tamil_month_method = 3
 #### Enable / Disable World City Checking
 check_database_for_world_cities = True
 use_internet_for_location_check = True
+geonames_username = 'sansqr.tech@gmail.com'  # Register free at https://www.geonames.org/login
 one_second_lontitude_in_degrees = 1.0/3600.
 """ To match Pramaadhi (North Indian) or Prabhava (South Indian) Set ONLY ONE of the below to True.
     Or If you dont like this experiment set both to False

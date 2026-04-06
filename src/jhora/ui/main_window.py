@@ -39,7 +39,7 @@ from PyQt6.QtWidgets import (
     QMenuBar, QMenu, QMessageBox, QFileDialog, QLabel, QSizePolicy, QDialog,
     QDialogButtonBox, QTextEdit, QInputDialog, QTableWidget, QTableWidgetItem,
     QAbstractItemView, QHBoxLayout, QLineEdit, QPushButton, QHeaderView,
-    QSpinBox, QDoubleSpinBox, QComboBox, QGridLayout
+    QSpinBox, QDoubleSpinBox, QComboBox, QGridLayout, QCheckBox
 )
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QFont, QColor, QPixmap
 from PyQt6.QtCore import Qt, QTimer, QDateTime, pyqtSignal
@@ -353,6 +353,48 @@ class _AboutDialog(QDialog):
 
 
 # ──────────────────────────────────────────────────────────────────
+#  DST helper
+# ──────────────────────────────────────────────────────────────────
+def _compute_tz_and_dst_for_date(lat: float, lon: float, date_str: str):
+    """
+    Compute the effective UTC offset and DST status for a given birth location
+    and date string (``'YYYY-MM-DD'``).
+
+    Returns
+    -------
+    ``(effective_offset, is_dst, standard_offset)``
+        All offsets are in decimal hours, positive = ahead of UTC
+        (e.g. IST = +5.5, EST = -5.0, EDT = -4.0).
+    Returns ``(None, False, None)`` when the timezone cannot be determined.
+    """
+    import datetime as _dt
+    try:
+        from timezonefinder import TimezoneFinder
+        import pytz
+        tf = TimezoneFinder()
+        tz_name = tf.timezone_at(lng=lon, lat=lat)
+        if not tz_name:
+            return None, False, None
+        tz = pytz.timezone(tz_name)
+        # Use noon on the birth date to avoid midnight DST edge-cases
+        date_obj = _dt.datetime.strptime(date_str, '%Y-%m-%d').replace(hour=12)
+        try:
+            localized = tz.localize(date_obj, is_dst=None)
+        except Exception:
+            localized = tz.localize(date_obj, is_dst=False)
+        # Compute effective UTC offset using the same "naive-datetime trick" as
+        # utils.get_place_timezone_offset so the sign convention is consistent.
+        utc_localized = pytz.utc.localize(date_obj)
+        effective_offset = (utc_localized - localized).total_seconds() / 3600.0
+        dst_hours = localized.dst().total_seconds() / 3600.0
+        is_dst = (dst_hours != 0.0)
+        standard_offset = effective_offset - dst_hours
+        return effective_offset, is_dst, standard_offset
+    except Exception:
+        return None, False, None
+
+
+# ──────────────────────────────────────────────────────────────────
 #  Birth Data Entry dialog
 # ──────────────────────────────────────────────────────────────────
 class BirthDataDialog(QDialog):
@@ -378,6 +420,8 @@ class BirthDataDialog(QDialog):
         self.setWindowTitle("Birth Data")
         self.setModal(True)
         self.setMinimumWidth(520)
+        self._base_tz = 0.0        # standard (non-DST) timezone offset in hours
+        self._dst_updating = False  # re-entrance guard for DST ↔ tz-spin sync
         self._build_ui()
         if initial_data:
             self._populate(initial_data)
@@ -499,6 +543,32 @@ class BirthDataDialog(QDialog):
         grid.addWidget(QLabel("e.g. +5.5 for IST, -5.0 for EST"), row, 2, 1, 3)
         row += 1
 
+        # Daylight Saving Time
+        grid.addWidget(QLabel("DST:"), row, 0)
+        dst_widget = QWidget()
+        dst_layout = QHBoxLayout(dst_widget)
+        dst_layout.setContentsMargins(0, 0, 0, 0)
+        dst_layout.setSpacing(8)
+        self._dst_check = QCheckBox("Daylight Saving Time active (+1 h)")
+        self._dst_check.setToolTip(
+            "Check if Daylight Saving Time was in effect at birth.\n"
+            "This adds 1 hour to the standard UTC offset.")
+        self._detect_dst_btn = QPushButton("Auto-detect")
+        self._detect_dst_btn.setFixedWidth(90)
+        self._detect_dst_btn.setToolTip(
+            "Detect DST automatically using the entered Date of Birth "
+            "and latitude/longitude")
+        dst_layout.addWidget(self._dst_check)
+        dst_layout.addWidget(self._detect_dst_btn)
+        dst_layout.addStretch()
+        grid.addWidget(dst_widget, row, 1, 1, 4)
+        row += 1
+
+        # Connect DST signals
+        self._dst_check.stateChanged.connect(self._on_dst_toggled)
+        self._tz_spin.valueChanged.connect(self._on_tz_spin_changed)
+        self._detect_dst_btn.clicked.connect(self._on_detect_dst)
+
         outer.addLayout(grid)
         outer.addSpacing(4)
 
@@ -547,9 +617,13 @@ class BirthDataDialog(QDialog):
             self._lon_dir.setCurrentText('E' if positive else 'W')
         except Exception:
             pass
-        # Timezone
+        # Timezone — assume the stored value is already the effective offset;
+        # reset DST checkbox so the user can toggle or auto-detect from here.
         try:
-            self._tz_spin.setValue(float(data.get('tz_offset', 0) or 0))
+            tz_val = float(data.get('tz_offset', 0) or 0)
+            self._base_tz = tz_val
+            self._tz_spin.setValue(tz_val)
+            self._dst_check.setChecked(False)
         except Exception:
             pass
 
@@ -627,6 +701,73 @@ class BirthDataDialog(QDialog):
         minutes = int(remainder)
         seconds = (remainder - minutes) * 60.0
         return degrees, minutes, seconds, positive
+
+    # ── DST helpers ───────────────────────────────────────────────
+    def _on_tz_spin_changed(self, value: float):
+        """Keep ``_base_tz`` in sync when the user edits the spinner directly."""
+        if not self._dst_updating:
+            if self._dst_check.isChecked():
+                self._base_tz = value - 1.0
+            else:
+                self._base_tz = value
+
+    def _on_dst_toggled(self, state: int):
+        """Adjust the effective UTC offset by ±1 h when the DST checkbox is toggled."""
+        if self._dst_updating:
+            return
+        self._dst_updating = True
+        try:
+            if state:
+                self._tz_spin.setValue(self._base_tz + 1.0)
+            else:
+                self._tz_spin.setValue(self._base_tz)
+        finally:
+            self._dst_updating = False
+
+    def _on_detect_dst(self):
+        """Auto-detect DST status using the entered Date of Birth and location."""
+        dob = self._dob_edit.text().strip()
+        lat = self._dms_to_decimal(
+            self._lat_deg.value(), self._lat_min.value(),
+            self._lat_sec.value(), self._lat_dir.currentText())
+        lon = self._dms_to_decimal(
+            self._lon_deg.value(), self._lon_min.value(),
+            self._lon_sec.value(), self._lon_dir.currentText())
+        if not dob:
+            QMessageBox.information(
+                self, "DST Detection",
+                "Please enter Date of Birth first.")
+            return
+        if lat == 0.0 and lon == 0.0:
+            QMessageBox.information(
+                self, "DST Detection",
+                "Please enter a valid Location (latitude/longitude) first.")
+            return
+        effective_offset, is_dst, standard_offset = _compute_tz_and_dst_for_date(
+            lat, lon, dob)
+        if effective_offset is None:
+            QMessageBox.warning(
+                self, "DST Detection",
+                "Could not determine the time zone for this location.\n"
+                "Please set the UTC offset and DST manually.")
+            return
+        # Update state without triggering recursive signals
+        self._base_tz = standard_offset
+        self._dst_updating = True
+        try:
+            self._dst_check.setChecked(is_dst)
+            self._tz_spin.setValue(effective_offset)
+        finally:
+            self._dst_updating = False
+        if is_dst:
+            msg = (f"DST is ACTIVE on {dob} for this location.\n\n"
+                   f"Standard offset : UTC {standard_offset:+.2f}\n"
+                   f"Effective offset: UTC {effective_offset:+.2f} (DST +1 h applied)")
+        else:
+            msg = (f"DST is NOT active on {dob} for this location.\n\n"
+                   f"Standard offset : UTC {standard_offset:+.2f}")
+        QMessageBox.information(self, "DST Detection", msg)
+
 
 
 # ──────────────────────────────────────────────────────────────────
